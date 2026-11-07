@@ -20,9 +20,10 @@ The static visual reference does not install or launch software. The desktop MVP
 
 ## Existing FreeCAD setup command
 
-The setup command is separate from the Qt desktop app, so it can work with a FreeCAD executable already installed on the machine. Use a virtual environment; do not install this project into Debian's system Python. It writes only under this app's data directory; it does not modify the selected FreeCAD installation or the normal FreeCAD profile. For example, on Linux:
+The setup command is separate from the Qt desktop app, so it can work with a FreeCAD executable already installed on the machine. Run these commands from the repository root (the directory containing `pyproject.toml`). Use a virtual environment; do not install this project into Debian's system Python. It writes only under this app's data directory; it does not modify the selected FreeCAD installation or the normal FreeCAD profile. For example, on Linux:
 
 ```sh
+cd /path/to/freecad-fusion-frontdoor
 python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 .venv/bin/frontdoor-setup --freecad /usr/bin/freecad --mode fusion
