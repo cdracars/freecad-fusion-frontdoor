@@ -6,6 +6,8 @@ A Windows-first frontdoor for trying FreeCAD with a Fusion-familiar navigation s
 
 The repo contains a visual mockup and an early Python/PySide6 MVP. The app is designed for Windows. This Linux development environment cannot validate the Windows installer, FreeCAD profile isolation, or add-on startup; see [SPEC.md](SPEC.md) for the release blockers.
 
+The expanded product, UX, architecture, workflow, navigation, and validation specifications are indexed in [`docs/specs/`](docs/specs/README.md).
+
 ## Preview
 
 Open `prototype.html` in a browser. Use the arrows at the bottom of the page (or the left/right arrow keys) to compare the three screens:
@@ -39,6 +41,20 @@ FREECAD_FUSION_FRONTDOOR_HOME="$PWD/.frontdoor-test" .venv/bin/frontdoor-setup -
 ```
 
 Use the actual executable path on the machine. `--mode both` prepares both isolated profiles; `--mode full` prepares a clean profile without the add-on. The existing FreeCAD preferences are not intentionally changed. Windows and Linux profile isolation still need an actual local launch to confirm FreeCAD honors the environment variables.
+
+### Managed local smoke windows
+
+On Linux/X11, `frontdoor-smoke` opens up to three FreeCAD windows with unique disposable profiles and records their process and window identities. It closes only windows whose process still carries the matching test profile marker, requests a normal window close first, and confirms the processes exited. Use the same `FREECAD_FUSION_FRONTDOOR_HOME` value for open, status, and close:
+
+```sh
+FREECAD_FUSION_FRONTDOOR_HOME="$PWD/.frontdoor-test" .venv/bin/frontdoor-smoke open --freecad /path/to/FreeCAD.AppImage --count 3
+FREECAD_FUSION_FRONTDOOR_HOME="$PWD/.frontdoor-test" .venv/bin/frontdoor-smoke status
+FREECAD_FUSION_FRONTDOOR_HOME="$PWD/.frontdoor-test" .venv/bin/frontdoor-smoke close --all
+```
+
+To inspect a fresh Frontdoor UI startup and native command registration, add `--frontdoor-ui --probe` to `open`. Add `--exercise-new-design` to click the actual New Design button and record the enabled state of the modeling actions. The deterministic modeling pass adds `--exercise-create-sketch --exercise-sketch-geometry --exercise-pocket --exercise-dressups`; it creates a body-owned XY sketch, inserts fixed test profiles through FreeCAD's API, then clicks the Frontdoor Pad, Pocket, Fillet, and Chamfer actions and records solid validity and volume. This validates the command wiring and feature results, not mouse-driven sketching. The runner stages the current task workbench into the disposable profile and writes a JSON report under `.frontdoor-test/smoke-tests/`.
+
+The runner requires an active X11 desktop with `xprop`; it refuses to close an unowned profile. Windows and Wayland smoke-run management are not implemented yet.
 
 ## Desktop app development
 

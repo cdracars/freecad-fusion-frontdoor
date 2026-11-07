@@ -22,6 +22,9 @@ def launch_freecad(
             [str(executable), *arguments],
             cwd=str(executable.parent),
             env=launch_environment(profile),
+            # A GUI app must outlive this short-lived CLI (and should not
+            # receive terminal-session signals when the caller exits).
+            start_new_session=(os.name != "nt"),
         )
     except OSError as exc:
         raise FrontdoorError(f"Could not launch FreeCAD: {exc}") from exc
