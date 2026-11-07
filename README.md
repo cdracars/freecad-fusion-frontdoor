@@ -20,15 +20,16 @@ The static visual reference does not install or launch software. The desktop MVP
 
 ## Existing FreeCAD setup command
 
-The setup command is separate from the Qt desktop app, so it can work with a FreeCAD executable already installed on the machine. It writes only under this app's data directory; it does not modify the selected FreeCAD installation or the normal FreeCAD profile. For example, on Linux:
+The setup command is separate from the Qt desktop app, so it can work with a FreeCAD executable already installed on the machine. Use a virtual environment; do not install this project into Debian's system Python. It writes only under this app's data directory; it does not modify the selected FreeCAD installation or the normal FreeCAD profile. For example, on Linux:
 
 ```sh
 python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -e .
-frontdoor-setup --freecad /usr/bin/freecad --mode fusion
-frontdoor-setup --freecad /usr/bin/freecad --mode fusion --launch fusion
+.venv/bin/python -m pip install -e .
+.venv/bin/frontdoor-setup --freecad /usr/bin/freecad --mode fusion
+.venv/bin/frontdoor-setup --freecad /usr/bin/freecad --mode fusion --launch fusion
 ```
+
+Replace `/usr/bin/freecad` with the executable path on your machine. If `python3 -m venv` reports that `ensurepip` is unavailable, install your distribution's `python3-venv` package first.
 
 Use the actual executable path on the machine. `--mode both` prepares both isolated profiles; `--mode full` prepares a clean profile without the add-on. The existing FreeCAD preferences are not intentionally changed. Windows and Linux profile isolation still need an actual local launch to confirm FreeCAD honors the environment variables.
 
