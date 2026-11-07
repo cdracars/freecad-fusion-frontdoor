@@ -16,14 +16,12 @@ from PySide6.QtWidgets import (
 )
 
 from .models import ReleaseAsset, SetupResult
+from .addon import ADDON_COMMIT
+from .errors import FrontdoorError
+from .launcher import launch_freecad
 from .paths import fusion_addon_ready, install_root, managed_executable, managed_version, profile_root
-from .services import (
-    ADDON_COMMIT,
-    FrontdoorError,
-    install_separate_setup,
-    latest_release,
-    launch_freecad,
-)
+from .release import latest_windows_release
+from .setup import install_managed_copy
 from .workers import TaskWorker
 
 
@@ -287,7 +285,7 @@ class MainWindow(QMainWindow):
             )
             self.setup_button.setEnabled(self._is_windows)
 
-        worker = TaskWorker(lambda progress: latest_release(progress))
+        worker = TaskWorker(lambda progress: latest_windows_release(progress))
         self._set_worker(worker, loaded)
 
     def _start_setup(self) -> None:
@@ -329,7 +327,7 @@ class MainWindow(QMainWindow):
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.progress.show()
-        worker = TaskWorker(lambda progress: install_separate_setup(self._release, progress))
+        worker = TaskWorker(lambda progress: install_managed_copy(self._release, progress))
         self._set_worker(worker, self._setup_complete)
 
     def _setup_complete(self, result: SetupResult) -> None:

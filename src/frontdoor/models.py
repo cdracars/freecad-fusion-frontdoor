@@ -17,5 +17,5 @@ class ReleaseAsset:
 class SetupResult:
     executable: Path
     version: str
-    fusion_profile: Path
-    full_profile: Path
+    fusion_profile: Path | None
+    full_profile: Path | None

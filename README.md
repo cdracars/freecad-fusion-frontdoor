@@ -18,6 +18,20 @@ You can also open a specific screen with `?variant=launchpad`, `?variant=guided`
 
 The static visual reference does not install or launch software. The desktop MVP entry point and setup behavior are documented in [SPEC.md](SPEC.md).
 
+## Existing FreeCAD setup command
+
+The setup command is separate from the Qt desktop app, so it can work with a FreeCAD executable already installed on the machine. It writes only under this app's data directory; it does not modify the selected FreeCAD installation or the normal FreeCAD profile. For example, on Linux:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e .
+frontdoor-setup --freecad /usr/bin/freecad --mode fusion
+frontdoor-setup --freecad /usr/bin/freecad --mode fusion --launch fusion
+```
+
+Use the actual executable path on the machine. `--mode both` prepares both isolated profiles; `--mode full` prepares a clean profile without the add-on. The existing FreeCAD preferences are not intentionally changed. Windows and Linux profile isolation still need an actual local launch to confirm FreeCAD honors the environment variables.
+
 ## Desktop app development
 
 On a Windows 10/11 x64 machine with Python 3.12+, install the project and launch it with:
@@ -25,7 +39,7 @@ On a Windows 10/11 x64 machine with Python 3.12+, install the project and launch
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e .
+python -m pip install -e ".[desktop]"
 freecad-frontdoor
 ```
 

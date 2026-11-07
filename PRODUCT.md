@@ -8,7 +8,7 @@ Windows 10/11 x64 desktop app (MVP)
 
 ## Stack
 
-Python 3.12+ and PySide6 desktop application. The existing single-file HTML/CSS/JS mockup remains a visual reference.
+Python 3.12+ setup core and CLI, with PySide6 as an optional desktop UI dependency. The existing single-file HTML/CSS/JS mockup remains a visual reference.
 
 ## Users
 
@@ -32,6 +32,7 @@ The first target is Windows. The frontdoor should install FreeCAD alongside any 
 - A proposed Fusion-like navigation add-on exists, but its Windows behavior needs validation.
 - Install the current stable official Windows FreeCAD release into a separate per-user location; configure an app-managed profile without changing existing FreeCAD settings.
 - Pin the community add-on to a specific commit rather than tracking its moving default branch.
+- Provide a standalone setup command that can prepare an isolated Fusion profile around an existing FreeCAD executable, without installing or modifying that executable.
 - The intended experience includes a focused workspace and a clear route back to full FreeCAD.
 - FreeCAD already includes CAM; any guided CAM flow in this product would organize existing FreeCAD capabilities.
 - Product name and overall technology are working choices; signing, packaging, and one-click cleanup remain future work.

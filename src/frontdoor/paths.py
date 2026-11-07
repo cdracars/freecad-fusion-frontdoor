@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 
+from .errors import FrontdoorError
+
 APP_FOLDER = "FreeCAD Fusion Frontdoor"
 MANAGED_INSTALL = "FreeCAD"
 FUSION_PROFILE_NAME = "fusion"
@@ -30,6 +32,38 @@ def profile_root(name: str) -> Path:
     if name not in {FUSION_PROFILE_NAME, FULL_PROFILE_NAME}:
         raise ValueError(f"Unknown profile: {name}")
     return data_root() / "profiles" / name
+
+
+def ensure_profile(name: str) -> Path:
+    """Create one owned profile, refusing to adopt a populated unmarked folder."""
+    profile = profile_root(name)
+    ownership_file = profile / ".frontdoor-profile.json"
+    if profile.exists() and ownership_file.is_file():
+        try:
+            ownership = json.loads(ownership_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise FrontdoorError(f"Could not read the profile ownership record at {profile}.") from exc
+        if ownership.get("product") != "FreeCAD Fusion Frontdoor" or ownership.get("profile") != name:
+            raise FrontdoorError(f"The profile path is owned by a different setup: {profile}")
+    elif profile.exists() and any(profile.iterdir()):
+        raise FrontdoorError(f"Refusing to use a populated profile directory without this app's ownership marker: {profile}")
+
+    for folder in (profile, profile / "Mod", profile / "temp"):
+        folder.mkdir(parents=True, exist_ok=True)
+    if not ownership_file.exists():
+        temporary = ownership_file.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps({"product": "FreeCAD Fusion Frontdoor", "profile": name}, indent=2),
+            encoding="utf-8",
+        )
+        temporary.replace(ownership_file)
+    return profile
+
+
+def ensure_profiles(names: tuple[str, ...]) -> dict[str, Path]:
+    if not names or len(set(names)) != len(names):
+        raise FrontdoorError("Select one or more distinct profiles to prepare.")
+    return {name: ensure_profile(name) for name in names}
 
 
 def executable_candidates(root: Path | None = None) -> tuple[Path, ...]:
@@ -92,17 +126,9 @@ def write_managed_marker(*, executable: Path, version: str) -> None:
     temporary.replace(marker)
 
 
-def prepare_profile(name: str) -> Path:
-    """Create the profile before setting FreeCAD's environment overrides."""
-    profile = profile_root(name)
-    for child in (profile, profile / "Mod", profile / "temp"):
-        child.mkdir(parents=True, exist_ok=True)
-    return profile
-
-
 def launch_environment(profile_name: str) -> dict[str, str]:
     """Build a launch-only environment for a Frontdoor-managed profile."""
-    profile = prepare_profile(profile_name)
+    profile = ensure_profile(profile_name)
     environment = os.environ.copy()
     environment["FREECAD_USER_HOME"] = str(profile)
     environment["FREECAD_USER_DATA"] = str(profile)
