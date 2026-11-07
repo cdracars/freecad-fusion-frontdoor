@@ -1,0 +1,823 @@
+<!doctype html>
+<!-- Three visual concepts for the FreeCAD Fusion frontdoor, switchable by ?variant=launchpad|guided|workspace. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11151a">
+  <title>FreeCAD for Fusion users — concept preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101318;
+      --shell: #171c22;
+      --surface: #1d232b;
+      --surface-raised: #252c35;
+      --surface-soft: #20262e;
+      --edge: #353d47;
+      --edge-strong: #4a5561;
+      --text: #f2f5f7;
+      --muted: #b1bac3;
+      --quiet: #89949f;
+      --orange: #ff8754;
+      --orange-strong: #ff7136;
+      --orange-wash: #39241c;
+      --green: #8dc7a8;
+      --green-wash: #1c3028;
+      --blue: #98bbd8;
+      --font-ui: "Segoe UI Variable", "Segoe UI", "Noto Sans", sans-serif;
+      --font-display: "Bahnschrift", "Segoe UI Variable", "Segoe UI", "Noto Sans", sans-serif;
+      --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --radius: 12px;
+      --shadow-window: 0 34px 90px rgba(0, 0, 0, .42), 0 6px 18px rgba(0, 0, 0, .24);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { min-width: 320px; background: var(--bg); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at 50% -20%, #25303b 0%, transparent 62%),
+        var(--bg);
+      font: 14px/1.45 var(--font-ui);
+      font-variant-numeric: tabular-nums;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: #ad4f2e; color: #fff; }
+    :focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+
+    button { color: inherit; font: inherit; }
+    button:disabled { cursor: not-allowed; }
+    a { color: inherit; text-underline-offset: 3px; }
+
+    .stage {
+      display: grid;
+      min-height: 100vh;
+      place-items: center;
+      padding: 38px 34px 82px;
+    }
+
+    .window {
+      width: min(1510px, 100%);
+      min-height: min(870px, calc(100vh - 124px));
+      overflow: hidden;
+      border: 1px solid #3a424d;
+      border-radius: 15px;
+      background: var(--shell);
+      box-shadow: var(--shadow-window);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .titlebar {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 14px 0 18px;
+      border-bottom: 1px solid #303842;
+      background: #1a2027;
+      user-select: none;
+    }
+
+    .brand-lockup, .titlebar-right, .brand-copy, .titlebar-tools,
+    .button-row, .section-heading, .profile-head, .line-row,
+    .field-head, .viewport-top, .viewport-bottom, .scene-readout,
+    .mock-footer, .step-line, .install-row, .window-actions,
+    .toolbar, .cad-titlebar, .cad-toolbar, .cad-status, .tree-row,
+    .meta-row, .switcher, .switcher-arrows, .switcher-name,
+    .sidebar-brand, .rail-foot, .safe-row, .progress-head {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-lockup { gap: 11px; min-width: 0; }
+
+    .brand-mark {
+      width: 25px;
+      height: 25px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid #a34e31;
+      border-radius: 7px;
+      background: #36231d;
+      color: var(--orange);
+    }
+
+    .brand-copy { gap: 8px; min-width: 0; }
+    .brand-name { font-size: 13px; font-weight: 680; letter-spacing: -.02em; }
+    .brand-separator { width: 1px; height: 15px; background: #48515b; }
+    .brand-subtitle { color: #c2cbd3; font-size: 12px; white-space: nowrap; }
+    .titlebar-right { gap: 15px; color: var(--muted); font-size: 11px; }
+    .preview-indicator { display: inline-flex; align-items: center; gap: 7px; color: #cbd3da; }
+    .preview-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 3px rgba(255, 135, 84, .12); }
+    .titlebar-tools { gap: 3px; color: #95a0aa; }
+    .window-control { width: 27px; height: 24px; display: grid; place-items: center; color: inherit; }
+    .window-control.close { border-radius: 5px; }
+    .window-control.close:hover { background: #a94138; color: white; }
+
+    .app-chrome {
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 22px;
+      border-bottom: 1px solid #303842;
+      background: #1c222a;
+    }
+
+    .mode-tabs { display: flex; align-items: stretch; align-self: stretch; gap: 23px; }
+    .mode-tab {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #9fa9b3;
+      font-size: 12px;
+    }
+    .mode-tab.active { color: var(--text); font-weight: 650; }
+    .mode-tab.active::after { content: ""; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--orange); }
+    .app-chrome-right { display: flex; align-items: center; gap: 11px; color: var(--muted); font-size: 11px; }
+    .local-badge { display: inline-flex; gap: 6px; align-items: center; padding: 5px 8px; border: 1px solid #38434d; border-radius: 6px; color: #d4dce2; }
+    .icon { width: 16px; height: 16px; display: inline-block; flex: 0 0 auto; }
+    .icon.small { width: 13px; height: 13px; }
+
+    .content-slot { flex: 1; min-height: 0; display: flex; }
+    .concept { width: 100%; min-height: 100%; }
+    .concept h1, .concept h2, .concept h3, p { margin-top: 0; }
+    .concept h1 {
+      margin-bottom: 9px;
+      color: var(--text);
+      font: 650 clamp(26px, 2.35vw, 35px)/1.14 var(--font-display);
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    .concept h2 { margin-bottom: 5px; font-size: 14px; font-weight: 660; letter-spacing: -.015em; }
+    .concept h3 { margin-bottom: 4px; font-size: 12px; font-weight: 650; }
+    .body-copy { max-width: 62ch; margin-bottom: 0; color: var(--muted); line-height: 1.65; }
+    .overline { margin: 0 0 10px; color: #aab4bd; font-size: 10px; font-weight: 730; letter-spacing: .12em; text-transform: uppercase; }
+    .subtle { color: var(--muted); }
+    .quiet { color: var(--quiet); }
+    .tiny { font-size: 11px; }
+    .micro { font-size: 10px; }
+
+    .button {
+      min-height: 39px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 0 15px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: var(--orange-strong);
+      color: #21130d;
+      font-weight: 750;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background .15s ease, transform .15s ease, box-shadow .15s ease;
+    }
+    .button:hover { background: #ff9b70; box-shadow: 0 4px 14px rgba(255, 113, 54, .18); transform: translateY(-1px); }
+    .button:active { transform: translateY(0); }
+    .button.secondary { background: #28313a; color: #e3e9ed; border-color: #47515c; }
+    .button.secondary:hover { background: #333d47; }
+    .button.ghost { background: transparent; color: #d2dae0; border-color: #46505b; }
+    .button.ghost:hover { background: #28313a; }
+    .button.small { min-height: 33px; padding: 0 11px; font-size: 12px; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border: 1px solid #414b56;
+      border-radius: 5px;
+      color: #d6dde2;
+      font-size: 10px;
+      font-weight: 650;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+    .pill.orange { background: var(--orange-wash); border-color: #70432f; color: #ffc09f; }
+    .pill.green { background: var(--green-wash); border-color: #385b49; color: #bce1cb; }
+    .pill.muted { background: #242b33; color: #c1cbd3; }
+
+    .line { border-top: 1px solid #343d47; }
+    .line-row { justify-content: space-between; gap: 16px; min-height: 44px; border-top: 1px solid #343d47; }
+    .line-row:first-child { border-top: 0; }
+    .line-label { color: #c8d0d7; font-size: 12px; }
+    .line-value { display: inline-flex; align-items: center; gap: 8px; color: #f0f3f5; font-size: 12px; font-weight: 620; }
+
+    .launch-layout { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: 100%; width: 100%; }
+    .setup-rail {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 23px 17px 18px;
+      border-right: 1px solid #303842;
+      background: #1a2027;
+    }
+    .sidebar-brand { gap: 9px; padding: 0 4px; color: #d9e0e5; font-size: 12px; font-weight: 700; }
+    .sidebar-brand .brand-mark { width: 22px; height: 22px; }
+    .rail-section-title { margin: 0 0 11px 4px; color: #8c98a3; font-size: 9px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
+    .rail-steps { display: grid; gap: 5px; }
+    .rail-step { display: grid; grid-template-columns: 23px 1fr; align-items: start; gap: 9px; padding: 9px 7px; border-radius: 7px; color: #aeb8c1; }
+    .rail-step.active { background: #2a2d30; color: #fff; }
+    .step-number { width: 21px; height: 21px; display: grid; place-items: center; border: 1px solid #58636e; border-radius: 50%; color: #c5cdd4; font: 11px var(--font-mono); }
+    .rail-step.active .step-number { border-color: #b85c39; background: #43281d; color: #ffc19e; }
+    .rail-step.done .step-number { border-color: #4f8268; background: #20392e; color: #a8d5ba; }
+    .rail-step-copy strong { display: block; font-size: 11px; font-weight: 650; }
+    .rail-step-copy span { display: block; margin-top: 2px; color: #8f9ba6; font-size: 10px; line-height: 1.4; }
+    .rail-foot { margin-top: auto; align-items: flex-start; gap: 10px; padding: 13px 11px; border: 1px solid #414a54; border-radius: 8px; background: #20262d; }
+    .rail-foot .icon { color: var(--green); margin-top: 1px; }
+    .rail-foot strong { display: block; color: #e5ece8; font-size: 11px; }
+    .rail-foot p { margin: 4px 0 0; color: #aab6af; font-size: 10px; line-height: 1.5; }
+
+    .launch-main { min-width: 0; padding: 27px 31px 25px; }
+    .launch-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 25px; margin-bottom: 24px; }
+    .launch-head-copy { min-width: 0; }
+    .launch-head-copy .body-copy { max-width: 58ch; }
+    .button-row { gap: 10px; flex-wrap: wrap; }
+    .launch-grid { display: grid; grid-template-columns: minmax(340px, 1.55fr) minmax(275px, .85fr); gap: 16px; align-items: stretch; }
+
+    .viewport-panel, .setup-panel, .panel {
+      border: 1px solid var(--edge);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .viewport-panel { min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .viewport-top { justify-content: space-between; gap: 12px; min-height: 43px; padding: 0 14px; border-bottom: 1px solid #343d47; background: #20262e; }
+    .viewport-top strong { font-size: 11px; font-weight: 650; }
+    .viewport-top-right { display: flex; align-items: center; gap: 10px; color: #9da8b2; font-size: 10px; }
+    .scene-wrap { position: relative; flex: 1; min-height: 315px; overflow: hidden; background: #181e24; }
+    .cad-scene { width: 100%; height: 100%; min-height: 315px; display: block; }
+    .scene-caption { position: absolute; left: 14px; bottom: 12px; display: flex; gap: 8px; align-items: center; padding: 6px 9px; border: 1px solid rgba(113, 127, 141, .55); border-radius: 5px; background: rgba(24, 30, 36, .92); color: #d4dce2; font-size: 10px; }
+    .scene-caption .orange-text { color: #ff9c6e; }
+    .scene-readout { gap: 16px; color: #a5b0ba; font: 10px var(--font-mono); }
+    .viewport-bottom { min-height: 39px; justify-content: space-between; gap: 12px; padding: 0 13px; border-top: 1px solid #343d47; background: #1c2229; }
+    .viewport-bottom span { color: #9ca7b1; font: 10px var(--font-mono); }
+
+    .setup-panel { display: flex; flex-direction: column; padding: 18px 18px 14px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+    .panel-header p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .profile-select { display: flex; gap: 4px; padding: 3px; border: 1px solid #39434d; border-radius: 7px; background: #171c22; }
+    .profile-option { min-height: 29px; padding: 0 9px; border: 0; border-radius: 5px; background: transparent; color: #9ca7b1; font-size: 10px; cursor: default; }
+    .profile-option.selected { background: #39414a; color: #fff; box-shadow: inset 0 0 0 1px #57616b; }
+    .feature-list { margin: 12px 0 0; padding: 0; list-style: none; }
+    .feature-list li { display: grid; grid-template-columns: 17px 1fr; gap: 9px; align-items: start; padding: 10px 0; border-top: 1px solid #343d47; }
+    .feature-list .icon { color: var(--green); margin-top: 1px; }
+    .feature-list strong { display: block; color: #e9edf0; font-size: 11px; font-weight: 640; }
+    .feature-list span { display: block; margin-top: 3px; color: #a8b2bb; font-size: 10px; line-height: 1.45; }
+    .setup-action { display: grid; gap: 10px; margin-top: auto; padding-top: 13px; }
+    .setup-action .button { width: 100%; }
+    .button-note { margin: 0; color: #9da8b2; text-align: center; font-size: 10px; }
+    .mock-footer { justify-content: space-between; gap: 18px; margin-top: 18px; padding-top: 13px; border-top: 1px solid #333c45; color: #a3adb6; font-size: 10px; }
+    .safe-row { gap: 7px; color: #c7d8cd; }
+    .safe-row .icon { color: var(--green); }
+    .mock-footer a { color: #d0d8df; }
+
+    .guided-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); width: 100%; min-height: 100%; }
+    .guided-rail { padding: 26px 20px; border-right: 1px solid #303842; background: #1a2027; }
+    .guided-rail h2 { margin: 0 0 7px; font: 600 17px/1.25 var(--font-display); }
+    .guided-rail > p { margin: 0 0 27px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .progress-list { position: relative; display: grid; gap: 21px; }
+    .progress-list::before { content: ""; position: absolute; left: 13px; top: 14px; bottom: 15px; width: 1px; background: #46515c; }
+    .progress-step { position: relative; display: grid; grid-template-columns: 27px 1fr; gap: 10px; align-items: start; color: #a4afb8; }
+    .progress-index { z-index: 1; width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid #59656f; border-radius: 50%; background: #1a2027; color: #c5cdd4; font: 11px var(--font-mono); }
+    .progress-step.current { color: #fff; }
+    .progress-step.current .progress-index { border-color: #bf633e; background: #3e291f; color: #ffc4a4; }
+    .progress-step strong { display: block; margin-top: 1px; font-size: 11px; font-weight: 650; }
+    .progress-step span { display: block; margin-top: 3px; color: #89959f; font-size: 10px; }
+    .guided-body { display: flex; flex-direction: column; min-width: 0; padding: 28px 35px 23px; }
+    .guided-title { margin-bottom: 22px; }
+    .guided-title h1 { max-width: 690px; }
+    .guided-columns { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(290px, .9fr); gap: 24px; align-items: start; }
+    .form-section { margin-bottom: 22px; }
+    .section-heading { justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .section-heading p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .radio-list { border: 1px solid #3a444f; border-radius: 9px; overflow: hidden; background: #1d232b; }
+    .radio-option { display: grid; grid-template-columns: 18px minmax(0,1fr) auto; align-items: start; gap: 11px; padding: 14px; border-top: 1px solid #353e48; }
+    .radio-option:first-child { border-top: 0; }
+    .radio-mark { width: 16px; height: 16px; margin-top: 1px; border: 1px solid #75818c; border-radius: 50%; display: grid; place-items: center; }
+    .radio-option.selected .radio-mark { border-color: var(--orange); }
+    .radio-option.selected .radio-mark::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
+    .radio-copy strong { display: block; color: #edf1f3; font-size: 12px; font-weight: 650; }
+    .radio-copy span { display: block; margin-top: 4px; color: #a3aeb8; font-size: 10px; line-height: 1.5; }
+    .choice-state { color: #ffbd98; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .path-field { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 46px; padding: 0 13px; border: 1px solid #3d4752; border-radius: 7px; background: #181e24; }
+    .path-field code { color: #d8e0e6; font: 11px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .path-field span { color: #a5b0b9; font-size: 10px; }
+    .check-list { display: grid; gap: 0; border-top: 1px solid #353e48; }
+    .check-row { display: grid; grid-template-columns: 18px minmax(0,1fr) auto; align-items: start; gap: 10px; padding: 12px 1px; border-bottom: 1px solid #353e48; }
+    .check-box { width: 16px; height: 16px; display: grid; place-items: center; border: 1px solid #bf633e; border-radius: 4px; background: #3d291f; color: #ffc09a; }
+    .check-row strong { display: block; color: #e8edf0; font-size: 11px; font-weight: 650; }
+    .check-row p { margin: 3px 0 0; color: #9ea9b3; font-size: 10px; }
+    .guided-summary { border: 1px solid var(--edge); border-radius: 10px; background: #20262e; overflow: hidden; }
+    .summary-head { padding: 15px 16px 12px; border-bottom: 1px solid #39434d; }
+    .summary-head h2 { margin: 0 0 5px; font-size: 13px; }
+    .summary-head p { margin: 0; color: #a9b4bd; font-size: 10px; }
+    .mini-scene { height: 169px; overflow: hidden; border-bottom: 1px solid #39434d; background: #171d23; }
+    .mini-scene .cad-scene { min-height: 169px; }
+    .summary-lines { padding: 0 15px; }
+    .summary-lines .line-row { min-height: 38px; }
+    .summary-lines .line-label, .summary-lines .line-value { font-size: 10px; }
+    .summary-safe { display: flex; gap: 8px; align-items: start; padding: 12px 15px; border-top: 1px solid #39434d; background: #1a2922; color: #c2d9cc; font-size: 10px; line-height: 1.45; }
+    .summary-safe .icon { flex: 0 0 auto; color: var(--green); }
+    .guided-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: auto; padding-top: 18px; border-top: 1px solid #343d47; }
+    .guided-footer-note { display: flex; align-items: center; gap: 8px; color: #b0bac2; font-size: 10px; }
+    .guided-footer-actions { display: flex; align-items: center; gap: 9px; }
+
+    .workspace-layout { width: 100%; display: flex; flex-direction: column; background: #161b21; }
+    .cad-titlebar { min-height: 39px; justify-content: space-between; padding: 0 14px; background: #1b2128; border-bottom: 1px solid #303842; }
+    .cad-title-left { display: flex; gap: 10px; align-items: center; min-width: 0; }
+    .cad-title-left strong { font-size: 11px; font-weight: 650; }
+    .cad-file-name { color: #a6b0b9; font-size: 10px; }
+    .cad-toolbar { min-height: 46px; justify-content: space-between; gap: 12px; padding: 0 14px; background: #20262e; border-bottom: 1px solid #3a434d; }
+    .tool-group { display: flex; gap: 5px; align-items: center; }
+    .tool-button { min-width: 38px; height: 32px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; border: 0; border-radius: 5px; background: transparent; color: #c2cbd2; font-size: 8px; cursor: default; }
+    .tool-button:hover { background: #333c45; }
+    .tool-button .icon { width: 14px; height: 14px; color: #d1d9df; }
+    .tool-divider { width: 1px; height: 24px; margin: 0 3px; background: #414b55; }
+    .workspace-main { display: grid; grid-template-columns: 216px minmax(0, 1fr) 304px; flex: 1; min-height: 480px; }
+    .model-tree { padding: 13px 10px; border-right: 1px solid #343d46; background: #1c2229; }
+    .dock-title { display: flex; align-items: center; justify-content: space-between; min-height: 27px; padding: 0 5px 9px; color: #e0e6ea; font-size: 10px; font-weight: 680; }
+    .tree-group { margin-top: 11px; }
+    .tree-section-label { margin: 0 0 5px; padding: 0 5px; color: #8e9aa4; font-size: 9px; font-weight: 740; letter-spacing: .09em; text-transform: uppercase; }
+    .tree-row { min-height: 27px; gap: 7px; padding: 0 5px; border-radius: 4px; color: #bdc6ce; font-size: 10px; }
+    .tree-row.indent { padding-left: 20px; }
+    .tree-row.current { background: #303841; color: white; }
+    .tree-row .icon { width: 13px; height: 13px; color: #a9b6c2; }
+    .tree-bullet { width: 7px; height: 7px; border-radius: 2px; background: #f18a5d; }
+    .cad-viewport { position: relative; min-width: 0; overflow: hidden; background: #171d23; }
+    .cad-viewport .cad-scene { min-height: 480px; }
+    .view-cube { position: absolute; top: 16px; right: 17px; width: 57px; height: 57px; display: grid; place-items: center; border: 1px solid #59636d; border-radius: 7px; background: #20272e; color: #cfd7dd; font: 10px var(--font-mono); transform: rotate(0deg); }
+    .view-cube::before { content: ""; position: absolute; inset: 9px; border: 1px solid #77838e; transform: rotate(30deg) skew(-8deg, -8deg); }
+    .viewport-tool-rail { position: absolute; top: 87px; right: 23px; display: grid; gap: 6px; }
+    .viewport-tool { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid #46515c; border-radius: 6px; background: #222a31; color: #bcc6ce; }
+    .setup-assistant { display: flex; flex-direction: column; padding: 18px 17px 15px; border-left: 1px solid #343d46; background: #20262e; }
+    .assistant-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; margin-bottom: 17px; }
+    .assistant-top h2 { margin: 0; font: 620 17px/1.25 var(--font-display); }
+    .assistant-top p { margin: 4px 0 0; color: #a5b0b9; font-size: 10px; }
+    .assistant-block { padding: 12px 0; border-top: 1px solid #3a444e; }
+    .assistant-block:first-of-type { border-top: 0; }
+    .assistant-block .line-row { min-height: 37px; }
+    .assistant-block .line-label, .assistant-block .line-value { font-size: 10px; }
+    .assistant-note { margin: 0; color: #aab5bd; font-size: 10px; line-height: 1.55; }
+    .assistant-actions { display: grid; gap: 8px; margin-top: auto; padding-top: 13px; }
+    .assistant-actions .button { width: 100%; }
+    .cad-status { justify-content: space-between; min-height: 27px; padding: 0 13px; border-top: 1px solid #3a434d; background: #1d232a; color: #9da8b1; font: 9px var(--font-mono); }
+
+    .concept-note { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 18px; border-top: 1px solid #333c45; background: #1a2027; color: #9da8b1; font-size: 10px; }
+    .concept-note strong { color: #cfd7dd; font-weight: 620; }
+
+    .switcher {
+      position: fixed;
+      z-index: 20;
+      left: 50%;
+      bottom: 18px;
+      gap: 11px;
+      transform: translateX(-50%);
+      min-height: 48px;
+      padding: 6px 8px;
+      border: 1px solid #56616d;
+      border-radius: 12px;
+      background: #222a32;
+      box-shadow: 0 9px 30px rgba(0, 0, 0, .38);
+    }
+    .switcher button { border: 0; cursor: pointer; }
+    .switcher-arrows { gap: 5px; }
+    .switcher-arrow { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #46515c !important; border-radius: 7px; background: #2c353e; color: #eef2f4; }
+    .switcher-arrow:hover { background: #39444e; }
+    .switcher-arrow:disabled { opacity: .45; cursor: default; }
+    .switcher-name { min-width: 180px; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; }
+    .switcher-kicker { color: #93a0ab; font-size: 8px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+    .switcher-label { color: #f1f4f6; font-size: 11px; font-weight: 680; }
+    .switcher-count { padding-left: 10px; border-left: 1px solid #46515c; color: #a9b4bd; font: 10px var(--font-mono); }
+
+    .toast {
+      position: fixed;
+      z-index: 30;
+      left: 50%;
+      bottom: 82px;
+      max-width: calc(100vw - 30px);
+      padding: 10px 14px;
+      border: 1px solid #58636e;
+      border-radius: 8px;
+      background: #29323b;
+      color: #eef2f5;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .33);
+      font-size: 11px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 8px);
+      transition: opacity .2s ease-out, transform .2s ease-out;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 1150px) {
+      .launch-layout { grid-template-columns: 190px minmax(0,1fr); }
+      .launch-main { padding: 23px 23px 20px; }
+      .launch-grid { grid-template-columns: minmax(300px, 1.35fr) minmax(250px, .9fr); }
+      .workspace-main { grid-template-columns: 180px minmax(0,1fr) 275px; }
+    }
+
+    @media (max-width: 900px) {
+      .stage { padding: 18px 14px 82px; }
+      .window { min-height: calc(100vh - 100px); }
+      .launch-layout, .guided-layout { grid-template-columns: 1fr; }
+      .setup-rail, .guided-rail { display: none; }
+      .launch-grid, .guided-columns { grid-template-columns: 1fr; }
+      .scene-wrap { min-height: 290px; }
+      .workspace-main { grid-template-columns: 165px minmax(0,1fr); }
+      .setup-assistant { grid-column: 1 / -1; border-top: 1px solid #343d46; border-left: 0; }
+      .assistant-actions { grid-template-columns: 1fr 1fr; }
+      .model-tree { grid-row: 1; }
+      .cad-viewport { grid-row: 1; }
+      .launch-head { align-items: flex-start; flex-direction: column; }
+      .guided-body { padding: 24px; }
+    }
+
+    @media (max-width: 600px) {
+      body { font-size: 13px; }
+      .stage { display: block; padding: 0 0 82px; }
+      .window { width: 100%; min-height: calc(100vh - 76px); border: 0; border-radius: 0; box-shadow: none; }
+      .titlebar { min-height: 44px; padding-left: 12px; }
+      .brand-subtitle, .titlebar-right .preview-indicator, .app-chrome-right .local-badge { display: none; }
+      .brand-separator { display: none; }
+      .app-chrome { min-height: 43px; padding: 0 14px; }
+      .mode-tabs { gap: 16px; }
+      .mode-tab { font-size: 10px; }
+      .app-chrome-right { font-size: 10px; }
+      .launch-main { padding: 22px 15px 18px; }
+      .launch-head { margin-bottom: 18px; }
+      .concept h1 { font-size: 27px; }
+      .button-row { width: 100%; }
+      .button-row .button { flex: 1; }
+      .launch-grid { gap: 12px; }
+      .scene-wrap { min-height: 245px; }
+      .cad-scene { min-height: 245px; }
+      .setup-panel { padding: 15px; }
+      .profile-head { flex-direction: column; align-items: flex-start; }
+      .mock-footer { align-items: flex-start; flex-direction: column; gap: 7px; }
+      .guided-body { padding: 21px 15px 17px; }
+      .guided-footer { align-items: flex-start; flex-direction: column; }
+      .guided-footer-actions { width: 100%; }
+      .guided-footer-actions .button { flex: 1; }
+      .guided-columns { gap: 8px; }
+      .workspace-main { display: flex; flex-direction: column; }
+      .model-tree { display: none; }
+      .cad-viewport { min-height: 360px; }
+      .cad-viewport .cad-scene { min-height: 360px; }
+      .cad-toolbar { min-height: 42px; overflow: hidden; }
+      .tool-button { min-width: 32px; }
+      .tool-button .tool-label { display: none; }
+      .setup-assistant { padding: 15px; }
+      .concept-note { align-items: flex-start; flex-direction: column; gap: 5px; padding: 10px 14px; }
+      .switcher { bottom: 10px; min-height: 46px; gap: 7px; }
+      .switcher-name { min-width: 143px; }
+      .switcher-count { padding-left: 7px; }
+      .switcher-arrow { width: 30px; height: 30px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="window" id="window">
+      <header class="titlebar">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.5 13.8 4.8v6.4L8 14.5l-5.8-3.3V4.8L8 1.5Z" stroke="currentColor" stroke-width="1.2"/><path d="m2.5 4.9 5.5 3.2 5.5-3.2M8 8.2v6" stroke="currentColor" stroke-width="1.1"/></svg>
+          </span>
+          <span class="brand-copy"><span class="brand-name">FreeCAD setup</span><span class="brand-separator"></span><span class="brand-subtitle">for Fusion users</span></span>
+        </div>
+        <div class="titlebar-right">
+          <span class="preview-indicator"><i class="preview-dot"></i>Concept preview</span>
+          <span class="titlebar-tools" aria-hidden="true">
+            <span class="window-control"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span>
+            <span class="window-control"><svg width="10" height="10" viewBox="0 0 10 10"><rect x="1.4" y="1.4" width="7.2" height="7.2" stroke="currentColor" fill="none"/></svg></span>
+            <span class="window-control close"><svg width="10" height="10" viewBox="0 0 10 10"><path d="m2 2 6 6m0-6L2 8" stroke="currentColor"/></svg></span>
+          </span>
+        </div>
+      </header>
+      <div class="app-chrome">
+        <nav class="mode-tabs" aria-label="Setup areas">
+          <span class="mode-tab active"><svg class="icon small" viewBox="0 0 16 16" fill="none"><path d="M2.3 3.2h11.4v9.6H2.3zM5.2 6h5.6M5.2 8.2h5.6M5.2 10.4h3.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Setup</span>
+          <span class="mode-tab"><svg class="icon small" viewBox="0 0 16 16" fill="none"><path d="M2.2 12.8h11.6M3 10.8l3-3 2 1.7 4-5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>What changes</span>
+          <span class="mode-tab"><svg class="icon small" viewBox="0 0 16 16" fill="none"><path d="M8 1.7 13 3.5v3.6c0 3.1-2.1 5.7-5 7.2-2.9-1.5-5-4.1-5-7.2V3.5l5-1.8Z" stroke="currentColor" stroke-width="1.1"/><path d="m5.8 8 1.5 1.5 2.9-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>Safety</span>
+        </nav>
+        <div class="app-chrome-right"><span class="local-badge"><svg class="icon small" viewBox="0 0 16 16" fill="none"><rect x="2.2" y="3" width="11.6" height="8.1" rx="1.2" stroke="currentColor" stroke-width="1.1"/><path d="M5.1 13h5.8M8 11.3V13" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Windows desktop concept</span><span>Help</span></div>
+      </div>
+      <main class="content-slot" id="app"></main>
+      <footer class="concept-note"><span><strong>Visual prototype only.</strong> Buttons preview the intended experience; no software is installed or changed.</span><span>Fusion is a product of Autodesk. This concept is independent.</span></footer>
+    </div>
+  </div>
+
+  <div class="switcher" aria-label="Visual concept switcher">
+    <div class="switcher-arrows">
+      <button class="switcher-arrow" id="previous" type="button" aria-label="Previous concept" title="Previous concept (Left arrow)">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="M10.5 3.5 6 8l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="switcher-name"><span class="switcher-kicker">Layout comparison</span><span class="switcher-label" id="variantName">Launchpad</span></div>
+    <span class="switcher-count" id="variantCount">A / C</span>
+    <div class="switcher-arrows">
+      <button class="switcher-arrow" id="next" type="button" aria-label="Next concept" title="Next concept (Right arrow)">
+        <svg class="icon" viewBox="0 0 16 16" fill="none"><path d="m5.5 3.5 4.5 4.5-4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const icon = (name, extra = "") => {
+      const common = `class="icon ${extra}" viewBox="0 0 16 16" fill="none" aria-hidden="true"`;
+      const paths = {
+        check: '<path d="m3.2 8.2 3 3 6.6-6.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+        shield: '<path d="M8 1.6 13 3.4V7c0 3.2-2.1 5.8-5 7.3C5.1 12.8 3 10.2 3 7V3.4L8 1.6Z" stroke="currentColor" stroke-width="1.1"/><path d="m5.7 7.9 1.5 1.5 3.1-3.1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>',
+        folder: '<path d="M1.8 4.4c0-.7.5-1.2 1.2-1.2h3.2l1.4 1.4h5.4c.7 0 1.2.5 1.2 1.2v5.8c0 .7-.5 1.2-1.2 1.2H3c-.7 0-1.2-.5-1.2-1.2V4.4Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>',
+        orbit: '<circle cx="8" cy="8" r="5.1" stroke="currentColor" stroke-width="1.1"/><path d="M2.5 8h11M8 2.8c1.4 1.4 2.1 3.1 2.1 5.2S9.4 11.8 8 13.2M8 2.8C6.6 4.2 5.9 5.9 5.9 8s.7 3.8 2.1 5.2" stroke="currentColor" stroke-width="1"/>',
+        sliders: '<path d="M2.3 4h11.4M2.3 8h11.4M2.3 12h11.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="5.3" cy="4" r="1.3" fill="#20262e" stroke="currentColor"/><circle cx="10.2" cy="8" r="1.3" fill="#20262e" stroke="currentColor"/><circle cx="7.1" cy="12" r="1.3" fill="#20262e" stroke="currentColor"/>',
+        cube: '<path d="m8 1.8 5.4 3.1v6.2L8 14.2l-5.4-3.1V4.9L8 1.8Z" stroke="currentColor" stroke-width="1.1"/><path d="m2.8 5.1 5.2 3 5.2-3M8 8.1v5.8" stroke="currentColor" stroke-width="1.1"/>',
+        spark: '<path d="m8 1.5 1.5 4.7 4.8 1.8-4.8 1.7L8 14.5l-1.5-4.8L1.7 8l4.8-1.8L8 1.5Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>',
+        arrow: '<path d="M3 8h9.5M8.7 4.2 12.5 8l-3.8 3.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+        info: '<circle cx="8" cy="8" r="5.8" stroke="currentColor" stroke-width="1.1"/><path d="M8 7v4M8 4.9h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+        sketch: '<path d="m2.5 11.8 7.6-7.6 2.9 2.9-7.6 7.6H2.5v-2.9Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="m9.1 5.2 2.9 2.9" stroke="currentColor" stroke-width="1.1"/>',
+        pad: '<path d="M3 11.8h10M4.1 10V5.4l3.9-2.2 3.9 2.2V10" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 3.2v6.5" stroke="currentColor" stroke-width="1.1"/>',
+        measure: '<path d="M2.2 5.2 5.1 2.3l8.6 8.6-2.9 2.9-8.6-8.6Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="m5 5 1.6-1.6m.6 3.8 1.2-1.2m.5 3.8 1.6-1.6" stroke="currentColor" stroke-width="1"/>',
+        eye: '<path d="M1.8 8s2.2-4 6.2-4 6.2 4 6.2 4-2.2 4-6.2 4-6.2-4-6.2-4Z" stroke="currentColor" stroke-width="1.1"/><circle cx="8" cy="8" r="1.8" stroke="currentColor" stroke-width="1.1"/>',
+        menu: '<path d="M2.5 4.2h11M2.5 8h11M2.5 11.8h11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+        link: '<path d="M6.4 9.6 9.6 6.4M5.7 11.5H4.5a2.5 2.5 0 0 1 0-5h2M10.3 4.5h1.2a2.5 2.5 0 1 1 0 5h-2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
+        dots: '<circle cx="3.2" cy="8" r=".8" fill="currentColor"/><circle cx="8" cy="8" r=".8" fill="currentColor"/><circle cx="12.8" cy="8" r=".8" fill="currentColor"/>',
+      };
+      return `<svg ${common}>${paths[name] || paths.info}</svg>`;
+    };
+
+    const scene = (compact = false) => `
+      <svg class="cad-scene" viewBox="0 0 720 430" role="img" aria-label="Concept CAD view of a machined mounting bracket">
+        <defs>
+          <linearGradient id="faceTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c1c8cd"/><stop offset="1" stop-color="#8e9aa3"/></linearGradient>
+          <linearGradient id="faceSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#687680"/><stop offset="1" stop-color="#414c56"/></linearGradient>
+          <linearGradient id="faceFront" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7e8b95"/><stop offset="1" stop-color="#586570"/></linearGradient>
+          <filter id="partShadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="10"/></filter>
+        </defs>
+        <g opacity=".2" stroke="#73818c" stroke-width=".8">
+          <path d="M28 358 350 172l342 197M28 334 350 148l342 197M28 310 350 124l342 197M28 286 350 100l342 197M28 382 350 196l342 197"/>
+          <path d="m83 399 321-185M137 414l321-185M191 429l321-185M245 442l321-185M29 369h662M71 393h620M113 417h578"/>
+        </g>
+        <path d="m198 286 187-109 186 106-188 110-185-107Z" fill="#0b0e11" opacity=".55" filter="url(#partShadow)"/>
+        <g stroke="#d9dfe3" stroke-opacity=".42" stroke-width="1.1" stroke-linejoin="round">
+          <path d="m183 238 172-100 179 103-173 101-178-104Z" fill="url(#faceTop)"/>
+          <path d="m183 238 0 77 178 104v-77L183 238Z" fill="url(#faceFront)"/>
+          <path d="m361 342 173-101v77L361 419v-77Z" fill="url(#faceSide)"/>
+          <path d="m224 236 130-75 136 79-132 76-134-80Z" fill="#6f7b85" stroke="#dce2e5" stroke-opacity=".55"/>
+          <path d="m224 236 0 28 134 79v-27l-134-80Z" fill="#49545d"/>
+          <path d="m358 343 132-76v28l-132 76v-28Z" fill="#3c464f"/>
+          <path d="m264 214 89-51 95 56-91 53-93-58Z" fill="#9da7ae"/>
+        </g>
+        <g fill="#1b2229" stroke="#d9dfe3" stroke-opacity=".42" stroke-width="1.1">
+          <ellipse cx="268" cy="227" rx="15" ry="8.5" transform="rotate(30 268 227)"/>
+          <ellipse cx="448" cy="228" rx="15" ry="8.5" transform="rotate(30 448 228)"/>
+          <ellipse cx="355" cy="176" rx="15" ry="8.5" transform="rotate(30 355 176)"/>
+        </g>
+        <g fill="none" stroke="#ff8754" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M196 123H523" stroke-dasharray="4 5" opacity=".7"/>
+          <path d="M196 117v12M523 117v12"/>
+          <path d="m205 120-9 3 9 3m309-6 9 3-9 3"/>
+          <path d="M211 121v-29h44"/>
+          <path d="M495 284h92v39"/>
+          <circle cx="268" cy="227" r="20" stroke-dasharray="3 4" opacity=".8"/>
+        </g>
+        <g fill="#ffad88" font-family="Cascadia Code, Consolas, monospace" font-size="11">
+          <text x="332" y="111">86.00 mm</text>
+          <text x="257" y="83">Ø 6.5</text>
+          <text x="543" y="340">R 4.0</text>
+        </g>
+        ${compact ? '' : `<g fill="#9caab4" font-family="Cascadia Code, Consolas, monospace" font-size="9"><text x="23" y="28">ISO · FRONT-RIGHT</text><text x="602" y="405">MM</text></g>`}
+      </svg>`;
+
+    const openAction = () => `<button type="button" class="button mock-action" data-message="Visual concept only — setup is not connected yet.">${icon('arrow')}Set up FreeCAD</button>`;
+    const previewAction = () => `<button type="button" class="button secondary mock-action" data-message="This is a screen mockup. No installer is running.">Preview setup</button>`;
+
+    const layouts = {
+      launchpad: {
+        name: "Launchpad",
+        letter: "A",
+        html: () => `
+          <div class="concept launch-layout">
+            <aside class="setup-rail" aria-label="Setup sequence">
+              <div class="sidebar-brand"><span class="brand-mark">${icon('cube')}</span><span>Fusion Mode</span></div>
+              <div>
+                <p class="rail-section-title">Setup path</p>
+                <div class="rail-steps">
+                  <div class="rail-step active"><span class="step-number">1</span><span class="rail-step-copy"><strong>Install FreeCAD</strong><span>Keep your current copy</span></span></div>
+                  <div class="rail-step"><span class="step-number">2</span><span class="rail-step-copy"><strong>Set your controls</strong><span>Navigation and shortcuts</span></span></div>
+                  <div class="rail-step"><span class="step-number">3</span><span class="rail-step-copy"><strong>Choose a workspace</strong><span>Focused or full</span></span></div>
+                  <div class="rail-step"><span class="step-number">4</span><span class="rail-step-copy"><strong>Launch FreeCAD</strong><span>Start modeling</span></span></div>
+                </div>
+              </div>
+              <div class="rail-foot">${icon('shield')}<div><strong>Your current setup stays yours</strong><p>This concept keeps the Fusion Mode profile separate from a regular FreeCAD setup.</p></div></div>
+            </aside>
+            <section class="launch-main">
+              <div class="launch-head">
+                <div class="launch-head-copy">
+                  <p class="overline">A familiar way into FreeCAD</p>
+                  <h1>Keep your CAD instincts.<br>Get to the model faster.</h1>
+                  <p class="body-copy">A focused FreeCAD setup for Fusion users: familiar view controls, a cleaner starting workspace, and the full toolset still within reach.</p>
+                </div>
+                <div class="button-row">${openAction()}</div>
+              </div>
+              <div class="launch-grid">
+                <section class="viewport-panel" aria-label="Workspace preview">
+                  <div class="viewport-top"><strong>Workspace preview</strong><span class="viewport-top-right">${icon('eye','small')}Illustrative model <span class="pill muted">Part Design</span></span></div>
+                  <div class="scene-wrap">${scene()}<div class="scene-caption"><span class="orange-text">●</span> Mounting bracket <span class="quiet">·</span> 3 editable features</div></div>
+                  <div class="viewport-bottom"><span>Sketch → Pad → Hole</span><span class="scene-readout"><span>86.00 mm</span><span>ISO view</span><span>Preview</span></span></div>
+                </section>
+                <aside class="setup-panel">
+                  <div class="panel-header profile-head"><div><h2>Fusion Mode</h2><p>Choose how FreeCAD opens</p></div><span class="pill orange">Proposed profile</span></div>
+                  <div class="profile-select" aria-label="Workspace profile preview"><button class="profile-option selected" type="button">Focused</button><button class="profile-option" type="button">Full FreeCAD</button></div>
+                  <ul class="feature-list">
+                    <li>${icon('orbit')}<div><strong>Familiar view controls</strong><span>Orbit, pan, and zoom with Fusion-style mouse gestures.</span></div></li>
+                    <li>${icon('spark')}<div><strong>Modeling tools up front</strong><span>Start in Sketcher and Part Design, with less-used workbenches out of the way.</span></div></li>
+                    <li>${icon('cube')}<div><strong>More when you need it</strong><span>Switch to the full FreeCAD workspace, including CAM, at any time.</span></div></li>
+                  </ul>
+                  <div class="setup-action">${previewAction()}<p class="button-note">Separate profile · easy to switch back</p></div>
+                </aside>
+              </div>
+              <div class="mock-footer"><span class="safe-row">${icon('shield','small')}No change to your existing FreeCAD preferences</span><a href="#" class="mock-action" data-message="This link is illustrative in the visual mockup.">See what changes ${icon('arrow','small')}</a></div>
+            </section>
+          </div>`,
+      },
+      guided: {
+        name: "Guided setup",
+        letter: "B",
+        html: () => `
+          <div class="concept guided-layout">
+            <aside class="guided-rail">
+              <h2>FreeCAD, in familiar territory.</h2>
+              <p>A simple setup path that leaves your current FreeCAD profile alone.</p>
+              <div class="progress-list" aria-label="Setup steps">
+                <div class="progress-step current"><span class="progress-index">1</span><span><strong>Install location</strong><span>Choose a separate install</span></span></div>
+                <div class="progress-step"><span class="progress-index">2</span><span><strong>Fusion controls</strong><span>Mouse and shortcuts</span></span></div>
+                <div class="progress-step"><span class="progress-index">3</span><span><strong>Workspace</strong><span>Focused or full toolset</span></span></div>
+                <div class="progress-step"><span class="progress-index">4</span><span><strong>Review</strong><span>Check before setup</span></span></div>
+              </div>
+              <div class="rail-foot">${icon('shield')}<div><strong>Easy to undo</strong><p>A separate profile keeps your regular FreeCAD preferences untouched.</p></div></div>
+            </aside>
+            <section class="guided-body">
+              <div class="guided-title">
+                <p class="overline">Setup preview · Step 1 of 4</p>
+                <h1>Choose a safe place to start.</h1>
+                <p class="body-copy">Install a dedicated FreeCAD setup beside your current one. You can choose the workspace and controls before the first launch.</p>
+              </div>
+              <div class="guided-columns">
+                <div>
+                  <section class="form-section">
+                    <div class="section-heading"><div><h2>Where should FreeCAD live?</h2><p>This is the proposed setup path, not an active installer.</p></div><span class="pill green">Separate install</span></div>
+                    <div class="radio-list" aria-label="Install options preview">
+                      <div class="radio-option selected"><span class="radio-mark"></span><span class="radio-copy"><strong>Install a separate FreeCAD copy</strong><span>Keep your current FreeCAD installation and settings as they are.</span></span><span class="choice-state">Recommended</span></div>
+                      <div class="radio-option"><span class="radio-mark"></span><span class="radio-copy"><strong>Use an existing installation</strong><span>Apply a separate Fusion Mode profile to a FreeCAD copy already on this computer.</span></span></div>
+                    </div>
+                  </section>
+                  <section class="form-section">
+                    <div class="section-heading"><div><h2>Proposed install folder</h2><p>Editable in the finished frontdoor app.</p></div></div>
+                    <div class="path-field"><code>C:\\Program Files\\FreeCAD Fusion Mode</code><span>Browse</span></div>
+                  </section>
+                  <section class="form-section">
+                    <div class="section-heading"><div><h2>Included in this setup</h2><p>Choose the familiar controls and starting workspace.</p></div></div>
+                    <div class="check-list">
+                      <div class="check-row"><span class="check-box">${icon('check','small')}</span><span><strong>Fusion-style navigation</strong><p>Shift + middle-drag to orbit; middle-drag to pan.</p></span><span class="pill muted">Preview</span></div>
+                      <div class="check-row"><span class="check-box">${icon('check','small')}</span><span><strong>Focused modeling workspace</strong><p>Put Sketcher and Part Design first; keep the rest available.</p></span><span class="pill muted">Preview</span></div>
+                      <div class="check-row"><span class="check-box">${icon('check','small')}</span><span><strong>Fusion keyboard shortcuts</strong><p>Use familiar keys for common sketch and solid tools.</p></span><span class="pill muted">Preview</span></div>
+                    </div>
+                  </section>
+                </div>
+                <aside class="guided-summary">
+                  <div class="summary-head"><h2>Your FreeCAD workspace</h2><p>A sample part preview, to show the visual direction.</p></div>
+                  <div class="mini-scene">${scene(true)}</div>
+                  <div class="summary-lines">
+                    <div class="line-row"><span class="line-label">Modeling</span><span class="line-value">Part Design</span></div>
+                    <div class="line-row"><span class="line-label">Navigation</span><span class="line-value">Fusion-style</span></div>
+                    <div class="line-row"><span class="line-label">CAM</span><span class="line-value">Still available</span></div>
+                  </div>
+                  <div class="summary-safe">${icon('shield','small')}<span>Your existing FreeCAD profile stays separate and can be restored.</span></div>
+                </aside>
+              </div>
+              <div class="guided-footer">
+                <span class="guided-footer-note">${icon('info','small')}Illustrative settings; no changes will be made.</span>
+                <div class="guided-footer-actions"><button class="button ghost mock-action" type="button" data-message="Back is illustrative in this visual preview.">Back</button><button class="button mock-action" type="button" data-message="This is a visual prototype. The next setup step is not connected.">Continue ${icon('arrow','small')}</button></div>
+              </div>
+            </section>
+          </div>`,
+      },
+      workspace: {
+        name: "Workspace preview",
+        letter: "C",
+        html: () => `
+          <div class="concept workspace-layout">
+            <div class="cad-titlebar">
+              <div class="cad-title-left"><span class="brand-mark">${icon('cube')}</span><strong>FreeCAD</strong><span class="cad-file-name">Mounting bracket · Fusion Mode preview</span></div>
+              <div class="app-chrome-right"><span class="pill green">Focused workspace</span><span>${icon('dots')}</span></div>
+            </div>
+            <div class="cad-toolbar" aria-label="Illustrative CAD toolbar">
+              <div class="tool-group"><span class="tool-button">${icon('sketch')}<span class="tool-label">Sketch</span></span><span class="tool-button">${icon('pad')}<span class="tool-label">Pad</span></span><span class="tool-button">${icon('measure')}<span class="tool-label">Hole</span></span><i class="tool-divider"></i><span class="tool-button">${icon('cube')}<span class="tool-label">Fillet</span></span><span class="tool-button">${icon('sliders')}<span class="tool-label">Pattern</span></span></div>
+              <div class="tool-group"><span class="pill muted">Part Design</span><span class="tool-button">${icon('eye')}<span class="tool-label">View</span></span></div>
+            </div>
+            <div class="workspace-main">
+              <aside class="model-tree" aria-label="Illustrative model tree">
+                <div class="dock-title"><span>Model</span>${icon('dots','small')}</div>
+                <div class="tree-group">
+                  <p class="tree-section-label">Document</p>
+                  <div class="tree-row current">${icon('cube')}<span>Mounting bracket</span></div>
+                  <div class="tree-row indent">${icon('sketch')}<span>Body</span></div>
+                  <div class="tree-row indent">${icon('sketch')}<span>Sketch</span></div>
+                  <div class="tree-row indent">${icon('pad')}<span>Pad</span></div>
+                  <div class="tree-row indent">${icon('measure')}<span>Hole</span></div>
+                </div>
+                <div class="tree-group">
+                  <p class="tree-section-label">Workbenches</p>
+                  <div class="tree-row current"><span class="tree-bullet"></span><span>Part Design</span></div>
+                  <div class="tree-row">${icon('cube')}<span>Sketcher</span></div>
+                  <div class="tree-row">${icon('sliders')}<span>CAM</span></div>
+                </div>
+              </aside>
+              <section class="cad-viewport" aria-label="Concept 3D modeling view">
+                ${scene()}
+                <div class="view-cube">TOP</div>
+                <div class="viewport-tool-rail"><span class="viewport-tool">${icon('eye')}</span><span class="viewport-tool">${icon('measure')}</span><span class="viewport-tool">${icon('cube')}</span></div>
+                <div class="scene-caption"><span class="orange-text">●</span> Mounting bracket <span class="quiet">·</span> sketch fully constrained</div>
+              </section>
+              <aside class="setup-assistant">
+                <div class="assistant-top"><div><p class="overline">Fusion Mode</p><h2>Start on<br>familiar ground.</h2><p>The focused FreeCAD workspace concept.</p></div><span class="pill orange">Preview</span></div>
+                <div class="assistant-block">
+                  <div class="line-row"><span class="line-label">Orbit</span><span class="line-value">Shift + middle-drag</span></div>
+                  <div class="line-row"><span class="line-label">Pan</span><span class="line-value">Middle-drag</span></div>
+                  <div class="line-row"><span class="line-label">Zoom</span><span class="line-value">Scroll at cursor</span></div>
+                </div>
+                <div class="assistant-block"><h3>Workspace stays focused</h3><p class="assistant-note">Sketch and solid tools stay visible. Full FreeCAD, including CAM, is one switch away.</p></div>
+                <div class="assistant-block"><p class="safe-row">${icon('shield','small')}Your regular FreeCAD settings remain separate.</p></div>
+                <div class="assistant-actions"><button class="button mock-action" type="button" data-message="The installer is not connected in this visual mockup.">Set up this workspace ${icon('arrow','small')}</button><button class="button secondary mock-action" type="button" data-message="This is a visual prototype. No application is launching.">See install choices</button></div>
+              </aside>
+            </div>
+            <div class="cad-status"><span>Ready · no document changes</span><span>MM · Fusion Mode concept</span></div>
+          </div>`,
+      },
+    };
+
+    const order = Object.keys(layouts);
+    const app = document.getElementById("app");
+    const nameNode = document.getElementById("variantName");
+    const countNode = document.getElementById("variantCount");
+    const previous = document.getElementById("previous");
+    const next = document.getElementById("next");
+    const toast = document.getElementById("toast");
+    let current = order.includes(new URLSearchParams(location.search).get("variant")) ? new URLSearchParams(location.search).get("variant") : "launchpad";
+    let toastTimer;
+
+    function render() {
+      const layout = layouts[current];
+      app.innerHTML = layout.html();
+      nameNode.textContent = layout.name;
+      countNode.textContent = `${layout.letter} / C`;
+      const params = new URLSearchParams(location.search);
+      params.set("variant", current);
+      history.replaceState({}, "", `${location.pathname}?${params.toString()}`);
+      app.querySelectorAll(".mock-action").forEach((action) => action.addEventListener("click", (event) => {
+        event.preventDefault();
+        toast.textContent = action.dataset.message || "Visual concept only — no setup runs.";
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+      }));
+    }
+
+    function move(direction) {
+      const index = order.indexOf(current);
+      current = order[(index + direction + order.length) % order.length];
+      render();
+    }
+
+    previous.addEventListener("click", () => move(-1));
+    next.addEventListener("click", () => move(1));
+    document.addEventListener("keydown", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      if (event.key === "ArrowLeft") { event.preventDefault(); move(-1); }
+      if (event.key === "ArrowRight") { event.preventDefault(); move(1); }
+    });
+    render();
+  </script>
+</body>
+</html>
