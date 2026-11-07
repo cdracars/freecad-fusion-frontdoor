@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QFrame,
@@ -354,14 +354,38 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Fusion mode is not ready", "Run setup again to install the Fusion add-on.")
             return
         try:
-            launch_freecad(executable, profile)
+            process = launch_freecad(executable, profile)
         except FrontdoorError as exc:
             QMessageBox.critical(self, "Could not launch FreeCAD", str(exc))
             return
+        self.status_label.setText(f"Starting FreeCAD with the {profile} profile…")
+        QTimer.singleShot(3000, lambda: self._check_launch(process, profile))
+
+    def _check_launch(self, process, profile: str) -> None:
+        exit_code = process.poll()
+        if exit_code is None:
+            self.status_label.setText(
+                f"FreeCAD is still running with the {profile} profile. Add-on startup is not confirmed."
+            )
+            return
+        if exit_code == 0:
+            self.status_label.setText(
+                f"FreeCAD launcher exited normally. Check its window; {profile} add-on startup is not confirmed."
+            )
+            QMessageBox.information(
+                self,
+                "Check the FreeCAD window",
+                "The launcher exited normally. FreeCAD may have handed off to another process; check its window. "
+                "The add-on loading status is not confirmed.",
+            )
+            return
         self.status_label.setText(
-            "Launched Fusion mode with its separate profile."
-            if profile == "fusion"
-            else "Launched Full FreeCAD with its own clean profile."
+            f"FreeCAD exited with status {exit_code}; {profile} startup and add-on loading were not confirmed."
+        )
+        QMessageBox.warning(
+            self,
+            "FreeCAD did not stay open",
+            f"The FreeCAD process exited with status {exit_code}. Check the launch environment and FreeCAD logs.",
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:

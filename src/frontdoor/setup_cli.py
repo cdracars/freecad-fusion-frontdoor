@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from .errors import FrontdoorError
@@ -49,8 +50,22 @@ def main(argv: list[str] | None = None) -> int:
         if result.full_profile:
             print(f"Full FreeCAD profile: {result.full_profile}")
         if args.launch:
-            launch_freecad(result.executable, args.launch, tuple(args.freecad_arg))
-            print(f"Launched profile: {args.launch}")
+            process = launch_freecad(result.executable, args.launch, tuple(args.freecad_arg))
+            for _ in range(6):
+                if process.poll() is not None:
+                    break
+                time.sleep(0.5)
+            exit_code = process.poll()
+            if exit_code not in (None, 0):
+                raise FrontdoorError(
+                    f"FreeCAD exited immediately with status {exit_code}; startup and add-on loading were not verified."
+                )
+            if exit_code == 0:
+                print(f"FreeCAD exited with status 0; check its window for profile: {args.launch}.")
+                print("The CLI cannot confirm that the add-on loaded.")
+            else:
+                print(f"FreeCAD is still running with profile: {args.launch}.")
+                print("The CLI cannot confirm that the add-on loaded.")
     except (FrontdoorError, OSError, ValueError) as exc:
         print(f"Setup failed: {exc}", file=sys.stderr)
         return 1

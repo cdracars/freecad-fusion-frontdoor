@@ -11,10 +11,14 @@ MANAGED_INSTALL = "FreeCAD"
 FUSION_PROFILE_NAME = "fusion"
 FULL_PROFILE_NAME = "full"
 MANAGED_MARKER = ".frontdoor-managed.json"
+DATA_ROOT_ENV = "FREECAD_FUSION_FRONTDOOR_HOME"
 
 
 def data_root() -> Path:
     """Return this app's per-user data root without touching FreeCAD's normal profile."""
+    override = os.environ.get(DATA_ROOT_ENV)
+    if override:
+        return Path(override).expanduser().resolve()
     local = os.environ.get("LOCALAPPDATA")
     if local:
         return Path(local) / APP_FOLDER
@@ -22,6 +26,8 @@ def data_root() -> Path:
 
 
 def install_root() -> Path:
+    if os.environ.get(DATA_ROOT_ENV):
+        return data_root() / "programs" / MANAGED_INSTALL
     local = os.environ.get("LOCALAPPDATA")
     if local:
         return Path(local) / "Programs" / APP_FOLDER / MANAGED_INSTALL
@@ -133,4 +139,22 @@ def launch_environment(profile_name: str) -> dict[str, str]:
     environment["FREECAD_USER_HOME"] = str(profile)
     environment["FREECAD_USER_DATA"] = str(profile)
     environment["FREECAD_USER_TEMP"] = str(profile / "temp")
+    if os.name == "nt":
+        roaming = profile / "appdata" / "roaming"
+        local = profile / "appdata" / "local"
+        roaming.mkdir(parents=True, exist_ok=True)
+        local.mkdir(parents=True, exist_ok=True)
+        environment["APPDATA"] = str(roaming)
+        environment["LOCALAPPDATA"] = str(local)
+    else:
+        profile_home = profile / "home"
+        xdg_config = profile_home / ".config"
+        xdg_data = profile_home / ".local" / "share"
+        xdg_cache = profile_home / ".cache"
+        for folder in (profile_home, xdg_config, xdg_data, xdg_cache):
+            folder.mkdir(parents=True, exist_ok=True)
+        environment["HOME"] = str(profile_home)
+        environment["XDG_CONFIG_HOME"] = str(xdg_config)
+        environment["XDG_DATA_HOME"] = str(xdg_data)
+        environment["XDG_CACHE_HOME"] = str(xdg_cache)
     return environment

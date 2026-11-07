@@ -27,6 +27,8 @@ This is an independent community tool. It is not affiliated with Autodesk or the
 
 `setup_existing_freecad(executable, profiles, progress)` accepts an existing FreeCAD executable and the requested isolated profiles. It stages the pinned add-on only for Fusion mode and returns the paths needed to launch either profile. It does not download, install, or modify the selected FreeCAD executable. `frontdoor-setup` exposes this operation for local smoke runs; `--launch` opts into starting FreeCAD with the selected profile.
 
+For sandboxed local runs, `FREECAD_FUSION_FRONTDOOR_HOME` redirects Frontdoor's data and managed-install paths. The launcher also redirects HOME/XDG (Linux) or APPDATA/LOCALAPPDATA (Windows) for the child FreeCAD process into that profile.
+
 ## Safety and recovery
 
 - No administrator rights, registry edits, changes to PATH, or modification of a pre-existing FreeCAD profile.
@@ -60,6 +62,7 @@ The existing `prototype.html` remains a visual reference, not the application im
 - Errors identify the failed step and leave enough state to retry or clean up the app-managed files.
 - The UI does not label setup complete until the executable and add-on directory are present.
 - The app does not perform Windows installation or profile claims on a non-Windows host.
+- A launcher process that survives its short startup check is not proof that FreeCAD loaded the add-on; manual UI/log confirmation remains necessary.
 
 ## Validation still required on Windows
 

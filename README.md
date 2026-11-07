@@ -32,6 +32,12 @@ python3 -m venv .venv
 
 Replace `/usr/bin/freecad` with the executable path on your machine. If `python3 -m venv` reports that `ensurepip` is unavailable, install your distribution's `python3-venv` package first.
 
+For a local profile test that keeps all Frontdoor files under the current directory, set a temporary data root before running the command:
+
+```sh
+FREECAD_FUSION_FRONTDOOR_HOME="$PWD/.frontdoor-test" .venv/bin/frontdoor-setup --freecad /usr/bin/freecad --mode fusion --launch fusion
+```
+
 Use the actual executable path on the machine. `--mode both` prepares both isolated profiles; `--mode full` prepares a clean profile without the add-on. The existing FreeCAD preferences are not intentionally changed. Windows and Linux profile isolation still need an actual local launch to confirm FreeCAD honors the environment variables.
 
 ## Desktop app development
