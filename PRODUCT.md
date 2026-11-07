@@ -4,11 +4,11 @@
 
 ## Platform
 
-web
+Windows 10/11 x64 desktop app (MVP)
 
 ## Stack
 
-Single-file HTML/CSS/JS mockup, selected by the user for immediate sharing and iteration.
+Python 3.12+ and PySide6 desktop application. The existing single-file HTML/CSS/JS mockup remains a visual reference.
 
 ## Users
 
@@ -28,16 +28,18 @@ The first target is Windows. The frontdoor should install FreeCAD alongside any 
 
 ## Capabilities and Constraints
 
-- The current deliverable is an interactive visual mockup, not a working installer.
+- The frontdoor implementation is an MVP in development; the current HTML deliverable remains visual-only.
 - A proposed Fusion-like navigation add-on exists, but its Windows behavior needs validation.
+- Install the current stable official Windows FreeCAD release into a separate per-user location; configure an app-managed profile without changing existing FreeCAD settings.
+- Pin the community add-on to a specific commit rather than tracking its moving default branch.
 - The intended experience includes a focused workspace and a clear route back to full FreeCAD.
 - FreeCAD already includes CAM; any guided CAM flow in this product would organize existing FreeCAD capabilities.
-- Product name, installer technology, and detailed setup steps remain undecided.
+- Product name and overall technology are working choices; signing, packaging, and one-click cleanup remain future work.
 
 ## Evidence on Hand
 
 - Existing community add-on: https://github.com/arxdsilva/freecad-fusion. Its README describes Fusion-style mouse navigation, NaviCube drag-to-orbit, and keyboard shortcuts. It says it was tested on FreeCAD 1.1 on macOS; Windows support is claimed by an installer script but is not confirmed by that test note.
-- No user testing, installer implementation, or Windows compatibility results exist yet.
+- No real Windows execution, user testing, or Windows compatibility results exist yet.
 
 ## Product Principles
 
