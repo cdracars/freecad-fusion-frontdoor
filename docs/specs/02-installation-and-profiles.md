@@ -21,7 +21,7 @@ The user confirms the setup before any installer is executed. The current deskto
 6. Confirm the expected `FreeCAD.exe` exists before writing the managed-install record or labeling setup ready.
 7. On retry, reuse/repair a correctly owned app-managed directory. Refuse to overwrite an unowned populated directory.
 
-The Windows 1.1.4 installer download matched the release SHA-256 and Windows reported its Authenticode status as `Valid`, with signer subject `CN=The FreeCAD project association AISBL, O=The FreeCAD project association AISBL, L=Brussels, C=BE`. The initial Frontdoor publisher comparison rejected this valid subject because it was case-sensitive and omitted “The”; the managed installation did not proceed. Fix and rerun that check before treating Windows install as validated.
+**Windows test evidence (2026-11-12):** the official stable FreeCAD 1.1.4 x64 installer asset (`FreeCAD_1.1.4-Windows-x86_64-py311-installer.exe`) matched release metadata SHA-256 `845f7101d33faf257a82a0cadc5f4f3804441f46ee493eb32b92fcf9c7147a24`. Windows reported Authenticode status `Valid` and signer subject `CN=The FreeCAD project association AISBL, O=The FreeCAD project association AISBL, L=Brussels, C=BE`; the case-insensitive publisher check accepts this legal subject. The managed install completed under the isolated test root, and `FreeCADCmd --version` reported 1.1.4. The Fusion profile, Frontdoor UI, and pinned navigation add-on were staged, and the GUI launched into the Frontdoor workbench. This validates the managed install and staging path on the test host; the complete setup UI review/confirmation, upgrade/repair behavior, no-elevation evidence, and preservation of an existing FreeCAD profile remain unverified.
 
 ## Profile contract
 
