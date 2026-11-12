@@ -62,6 +62,14 @@ class TaskSurface(QtWidgets.QDockWidget):
         active_task.setObjectName("activeTaskLabel")
         heading.addWidget(active_task)
         heading.addStretch(1)
+        self.navigation_status = QtWidgets.QLabel()
+        self.navigation_status.setObjectName("navigationStatus")
+        self.navigation_status.setAccessibleName("Navigation mode")
+        self.navigation_status.setToolTip(
+            "Fusion navigation: middle-drag pans, Shift + middle-drag orbits, and the wheel zooms toward the cursor. "
+            "Use Tools > Restore my previous FreeCAD settings to switch back."
+        )
+        heading.addWidget(self.navigation_status)
         layout.addLayout(heading)
 
         self.tabs = QtWidgets.QTabWidget(root)
@@ -92,6 +100,7 @@ class TaskSurface(QtWidgets.QDockWidget):
             "QWidget { background: #252a31; color: #e8edf2; }"
             "QLabel#workspaceLabel { color: #9ca9b7; font-size: 10px; font-weight: 700; letter-spacing: 1px; }"
             "QLabel#activeTaskLabel { color: #ffffff; font-size: 12px; font-weight: 700; }"
+            "QLabel#navigationStatus { color: #d5e6f6; background: #343b44; border: 1px solid #48515d; border-radius: 3px; padding: 4px 8px; font-size: 10px; }"
             "QLabel#commandHint { color: #b8c2cc; font-size: 10px; }"
             "QToolBar#FrontdoorQuickAccess { background: transparent; border: 0; spacing: 2px; }"
             "QToolBar#FrontdoorQuickAccess QToolButton { background: transparent; border: 0; border-radius: 3px; padding: 4px; min-width: 24px; min-height: 24px; color: #d9e1e8; }"
@@ -271,6 +280,20 @@ class TaskSurface(QtWidgets.QDockWidget):
         self.refresh_state()
 
     def refresh_state(self):
+        fusion_navigation = App.ParamGet(
+            "User parameter:BaseApp/Preferences/Mod/FreecadFusion"
+        ).GetBool("Enabled", False)
+        if fusion_navigation:
+            self.navigation_status.setText("Fusion navigation")
+            self.navigation_status.setToolTip(
+                "Fusion-style navigation is active: middle-drag pans, Shift + middle-drag orbits, "
+                "and the wheel zooms toward the cursor. Use Tools > Restore my previous FreeCAD settings to switch back."
+            )
+        else:
+            self.navigation_status.setText("FreeCAD navigation")
+            self.navigation_status.setToolTip(
+                "The Fusion navigation preset is off. Use the add-on's Tools menu to apply it again."
+            )
         has_document = App.ActiveDocument is not None
         try:
             selection = Gui.Selection.getSelectionEx() if has_document else []

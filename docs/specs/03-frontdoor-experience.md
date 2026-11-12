@@ -148,9 +148,9 @@ Progressively reveal actions when their prerequisites are met instead of keeping
 
 ## Navigation and view cube
 
-Fusion-friendly mode should provide predictable pan, orbit, and zoom gestures, zoom-at-cursor where supported, and a drag-enabled NaviCube. Provide Front/Back/Left/Right/Top/Bottom/Isometric standard views. Standard view controls orient the camera around the model; they do not imply that a particular component (for example, a monitor stand) should be isolated or framed automatically.
+Fusion-friendly mode uses the pinned navigation add-on's mouse gestures: middle-drag pans, Shift + middle-drag orbits, and the wheel zooms toward the cursor. Dragging the center of the NaviCube orbits; clicking its faces, edges, and corners selects standard views. Provide Front/Back/Left/Right/Top/Bottom/Isometric standard views. Standard view controls orient the camera around the model; they do not imply that a particular component (for example, a monitor stand) should be isolated or framed automatically.
 
-Show the active navigation mode and provide a reversible way to select native FreeCAD navigation. Exact mapping, middle-button orbit focus, NaviCube hit testing, and platform behavior must be verified per supported FreeCAD version/platform.
+Show a compact `Fusion navigation` status in the existing Frontdoor task surface when the preset is active. Keep native menus and the add-on's reversible Tools menu commands; do not add a navigation toolbar. When the user restores native FreeCAD settings, update the status and preserve that choice at later launches. Verify mappings, NaviCube hit targets, restore behavior, and platform behavior per supported FreeCAD version/platform before claiming support.
 
 ## First-run behavior
 

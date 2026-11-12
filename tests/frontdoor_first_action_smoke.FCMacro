@@ -64,6 +64,10 @@ def _snapshot(label):
         "primary_command": dock.primary_command,
         "visible_actions": visible_actions,
         "hint": dock.status.text(),
+        "navigation_status": dock.navigation_status.text(),
+        "fusion_navigation_enabled": App.ParamGet(
+            "User parameter:BaseApp/Preferences/Mod/FreecadFusion"
+        ).GetBool("Enabled", False),
         "editing_object": getattr(edit_object, "Name", None),
         "modal_dialogs": [
             widget.windowTitle()
@@ -221,6 +225,13 @@ def _check_no_document():
         _require("Next, create a sketch." in state["hint"], "No-document hint did not explain the next step.")
         _require(not _tasks_dock_visible(state), "The empty native Tasks dock remained visible at launch.")
         _require(state["menu_bar_visible"], "Frontdoor hid the native menu bar.")
+        expected_navigation = (
+            "Fusion navigation" if state["fusion_navigation_enabled"] else "FreeCAD navigation"
+        )
+        _require(
+            state["navigation_status"] == expected_navigation,
+            "Navigation status did not match the active add-on preset state.",
+        )
         _require(
             all(toolbar["hidden"] for toolbar in state["toolbars"]),
             "Native toolbars were visible in Frontdoor's idle state.",

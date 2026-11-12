@@ -23,7 +23,7 @@
 | SHA-256 and publisher verification | Code present | Release digest matched; Authenticode status `Valid`; signer accepted | Windows verification passed for 1.1.4 asset |
 | Profile environment isolation | Used by local test harness | GUI reported `App.getUserAppDataDir()` inside the isolated Fusion profile | Both platforms locally verified for tested launches |
 | Theme persistence and first-run Welcome panel | Theme is prefilled; Welcome panel remains | Configured fresh profile opened directly into Frontdoor; persistence not assessed | Windows first-launch surface verified; theme persistence and Linux Welcome behavior open |
-| Fusion navigation mappings/NaviCube | Initial add-on launch only | Add-on staged; navigation behavior not exercised | Open |
+| Fusion navigation mappings/NaviCube | Initial add-on launch only | The disabled-preset status displayed `FreeCAD navigation` in an isolated Windows 1.1.4 profile at 100% scale. The 150% smoke exited with `-1073740791` before writing its report. Fusion-enabled status, mouse gestures, NaviCube hit targets, restore/reapply persistence, and Full FreeCAD isolation remain unverified. | Open; Windows acceptance pass defined in [theme and navigation](06-theme-and-navigation.md) |
 | Frontdoor task UI recovery / Full FreeCAD profile | Profile/code path exists; release acceptance incomplete | Full profile not launched | Open |
 
 ### Windows smoke evidence (2026-11-12)
