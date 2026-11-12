@@ -13,6 +13,7 @@
 | Area | Linux FreeCAD 1.1.1 | Windows FreeCAD 1.1.4 | Status |
 |---|---|---|---|
 | Frontdoor profile starts and loads workbench | Isolated X11 smoke run | GUI smoke: Frontdoor workbench and visible task surface | Both platforms verified for startup; Windows scope is one clean launch |
+| First-action progression and idle Tasks dock | Linux harness predates this iteration | Fresh isolated profile showed New Design → Create Sketch → native sketch edit → Pad; empty Tasks dock hidden at rest and visible during edit; 1280 × 720 window passed at Qt scale factors 1.0 and 1.5 | Windows verified; Linux and other FreeCAD versions open |
 | Native Solid command registration | Verified | Six required commands present | Windows startup registration verified |
 | Sketch, Pad, Pocket | Deterministic API geometry + actual Frontdoor buttons; volumes/validity verified | New Design and Create Sketch buttons; body-owned XY sketch entered edit mode | Windows sketch entry verified; geometry/Pad/Pocket open |
 | Fillet/Chamfer branches | Deep-copy branches produced valid single solids | Not run | Linux locally verified; Windows open; 1 mm saved property assertion remains open |
@@ -20,7 +21,7 @@
 | Managed FreeCAD download/install | Not applicable in this environment | Official 1.1.4 installer verified and installed to app-owned test path; `FreeCADCmd --version` returned 1.1.4 | Windows managed install path verified in isolated test root |
 | SHA-256 and publisher verification | Code present | Release digest matched; Authenticode status `Valid`; signer accepted | Windows verification passed for 1.1.4 asset |
 | Profile environment isolation | Used by local test harness | GUI reported `App.getUserAppDataDir()` inside the isolated Fusion profile | Both platforms locally verified for tested launches |
-| Theme persistence and first-run Welcome panel | Theme is prefilled; Welcome panel remains | Not assessed | Partial; first-run choice and Windows theme persistence open |
+| Theme persistence and first-run Welcome panel | Theme is prefilled; Welcome panel remains | Configured fresh profile opened directly into Frontdoor; persistence not assessed | Windows first-launch surface verified; theme persistence and Linux Welcome behavior open |
 | Fusion navigation mappings/NaviCube | Initial add-on launch only | Add-on staged; navigation behavior not exercised | Open |
 | Frontdoor task UI recovery / Full FreeCAD profile | Profile/code path exists; release acceptance incomplete | Full profile not launched | Open |
 
@@ -28,7 +29,13 @@
 
 On the attached Windows test host, installed the official stable FreeCAD 1.1.4 x64 build under the test root, verified the release SHA-256 and a valid Authenticode signature, and staged the isolated Fusion profile and pinned add-on. The GUI smoke launched that managed executable with `FrontdoorWorkbench`; the Frontdoor Design task surface was visible, all six required commands were registered, and the task buttons created a new document and entered an XY sketch owned by a Part Design body. FreeCAD reported its user data directory inside the isolated Fusion profile, no modal dialogs were observed during the probe, and the process exited with status 0 after the probe closed its document and window. A follow-up process query found no remaining process for that exact managed executable.
 
-This does not validate first-run Welcome behavior, theme or navigation behavior, actual sketch drawing, Pad/Pocket/Fillet/Chamfer modeling, Full FreeCAD recovery, preservation of a pre-existing FreeCAD profile, or opening and closing multiple Windows instances. The test host had no pre-existing FreeCAD installation to compare against.
+The managed-install smoke above did not validate theme or navigation behavior, actual sketch drawing, Pad/Pocket/Fillet/Chamfer modeling, Full FreeCAD recovery, preservation of a pre-existing FreeCAD profile, or opening and closing multiple Windows instances. The test host had no pre-existing FreeCAD installation to compare against. First-action startup behavior is covered separately below in a configured fresh profile.
+
+### Windows first-action UI evidence (2026-11-12)
+
+Ran [`tests/frontdoor_first_action_smoke.FCMacro`](../../tests/frontdoor_first_action_smoke.FCMacro) in a newly created, app-owned Fusion test profile with the configured theme and Frontdoor workbench. The captured workspace opened directly in `Design > Solid` without a modal chooser or FreeCAD Basic Setup/Welcome page. The macro verified one visible primary `New Design` action and no downstream modeling commands; after creating a document it verified `Create Sketch` became primary. Sketch creation entered native edit mode on the default XY plane without an orientation dialog, showed the native `Tasks` dock for the edit, and hid it again after the sketch closed. The macro added a closed 20 × 20 mm profile and verified `Pad` became primary, then closed the document and FreeCAD process. All macro assertions passed and the process exited with status 0.
+
+This run verifies command progression and dock visibility, not visual acceptance by Fusion users. It tested a 1280 × 720 logical window with `QT_SCALE_FACTOR=1.0` and `1.5`; it did not change Windows' global display-scaling setting. It does not test a clean unconfigured FreeCAD profile, actual mouse-drawn sketch geometry, feature execution, or ordinary-profile preservation.
 
 ## Required local test flow
 
@@ -62,7 +69,7 @@ Before broad distribution, observe Fusion users attempting the first Solid flow 
 
 ## Release blockers and deferred work
 
-**Release blockers:** actual Windows installer and profile run; Authenticode publisher confirmation; first-run Welcome/onboarding decision; Windows navigation and UI recovery; parameterized Windows Solid workflow; user-facing review/confirmation before install; setup status tied to actual readiness.
+**Release blockers:** actual Windows installer and profile run; Authenticode publisher confirmation; Linux and other-build first-run Welcome behavior; Windows navigation and UI recovery; parameterized Windows Solid workflow; user-facing review/confirmation before install; setup status tied to actual readiness.
 
 **Deferred:** one-click uninstall/profile cleanup, OS-matched themes, importing Fusion data, broad customization of task commands, advanced workspaces beyond validated capabilities, and any assumption that visual similarity alone converts users.
 

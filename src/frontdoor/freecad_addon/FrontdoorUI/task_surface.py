@@ -42,12 +42,6 @@ class TaskSurface(QtWidgets.QDockWidget):
         active_task.setObjectName("activeTaskLabel")
         heading.addWidget(active_task)
         heading.addStretch(1)
-        new_design = QtWidgets.QToolButton(root)
-        new_design.setText("New Design")
-        new_design.setProperty("commandId", _commands["New Design"])
-        new_design.clicked.connect(lambda checked=False: self._run(_commands["New Design"]))
-        heading.addWidget(new_design)
-        heading.addWidget(QtWidgets.QLabel("Frontdoor prototype"))
         layout.addLayout(heading)
 
         self.tabs = QtWidgets.QTabWidget(root)
@@ -58,13 +52,14 @@ class TaskSurface(QtWidgets.QDockWidget):
         except Exception:
             self.available_commands = None
         self.solid_page = QtWidgets.QWidget(self.tabs)
-        row = QtWidgets.QHBoxLayout(self.solid_page)
-        row.setContentsMargins(4, 6, 4, 0)
-        row.setSpacing(10)
-
-        row.addWidget(self._group("Create", ("Create Sketch", "Pad", "Pocket")))
-        row.addWidget(self._group("Modify", ("Fillet", "Chamfer")))
-        row.addStretch(1)
+        self.action_row = QtWidgets.QHBoxLayout(self.solid_page)
+        self.action_row.setContentsMargins(4, 6, 4, 0)
+        self.action_row.setSpacing(10)
+        self.create_group, self.create_layout = self._group("Create")
+        self.modify_group, self.modify_layout = self._group("Modify")
+        self.action_row.addWidget(self.create_group)
+        self.action_row.addWidget(self.modify_group)
+        self.action_row.addStretch(1)
         self.tabs.addTab(self.solid_page, "Solid")
         layout.addWidget(self.tabs)
 
@@ -80,40 +75,89 @@ class TaskSurface(QtWidgets.QDockWidget):
             "QLabel#commandHint { color: #b8c2cc; font-size: 10px; }"
             "QTabWidget::pane { border: 0; border-top: 1px solid #404852; }"
             "QTabBar::tab { background: #30363e; color: #bdc6cf; padding: 7px 16px; margin-right: 3px; border: 0; }"
-            "QTabBar::tab:selected { background: #1677d2; color: #ffffff; font-weight: 600; }"
-            "QToolButton { background: #343b44; border: 1px solid #48515d; border-radius: 4px; padding: 7px 12px; min-width: 78px; color: #f1f4f7; }"
-            "QToolButton:hover:enabled { background: #414b56; border-color: #748291; }"
+            "QTabBar::tab:selected { background: #145fa9; color: #ffffff; font-weight: 600; }"
+            "QToolButton { background: #343b44; border: 1px solid #48515d; border-radius: 3px; padding: 7px 12px; min-width: 78px; min-height: 30px; color: #f1f4f7; }"
+            "QToolButton:hover:enabled { background: #414b56; border-color: #9ca9b7; }"
+            "QToolButton:focus { border: 2px solid #91caff; }"
+            "QToolButton#primaryAction { background: #145fa9; border-color: #145fa9; color: #ffffff; font-weight: 600; padding: 8px 16px; min-width: 112px; min-height: 34px; }"
+            "QToolButton#primaryAction:hover:enabled { background: #0f4e8f; border-color: #0f4e8f; }"
             "QToolButton:disabled { color: #74808c; background: #2c3239; border-color: #3b424a; }"
         )
+        self.primary_button = None
+        self.primary_command = None
+        self.secondary_buttons = {}
         self.buttons = {}
-        for button in root.findChildren(QtWidgets.QToolButton):
-            self.buttons[button.property("commandId")] = button
+        self._rendered_state = None
         self.refresh_state()
 
-    def _group(self, title, labels):
+    def _group(self, title):
         group = QtWidgets.QGroupBox(title)
         row = QtWidgets.QHBoxLayout(group)
-        row.setContentsMargins(8, 12, 8, 8)
+        row.setContentsMargins(8, 10, 8, 7)
         row.setSpacing(6)
-        for label in labels:
-            command = _commands[label]
+        group.hide()
+        return group, row
+
+    def _make_button(self, command, primary=False):
+        label = next(label for label, command_id in _commands.items() if command_id == command)
+        button = QtWidgets.QToolButton(self.solid_page)
+        button.setText(label)
+        button.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
+        button.setProperty("commandId", command)
+        button.setToolTip(self._tooltip(label))
+        if primary:
+            button.setObjectName("primaryAction")
+            button.setAccessibleName(label)
+        button.clicked.connect(lambda checked=False, command=command: self._run(command))
+        self.buttons[command] = button
+        return button
+
+    def _clear_buttons(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def _render_actions(self, primary, secondary, modifying):
+        state = (primary, tuple(secondary), bool(modifying))
+        if state == self._rendered_state:
+            return
+        self._clear_buttons(self.create_layout)
+        self._clear_buttons(self.modify_layout)
+        self.buttons = {}
+        self.primary_button = None
+        self.primary_command = primary
+        self.secondary_buttons = {}
+
+        if primary:
+            button = self._make_button(primary, primary=True)
+            self.primary_button = button
+            self.create_layout.addWidget(button)
+            self.create_group.show()
+        else:
+            self.create_group.hide()
+
+        for command in secondary:
             if self.available_commands is not None and command not in self.available_commands:
                 continue
-            button = QtWidgets.QToolButton(group)
-            button.setText(label)
-            button.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
-            button.setProperty("commandId", command)
-            button.setToolTip(self._tooltip(label))
-            button.clicked.connect(lambda checked=False, command=command: self._run(command))
-            row.addWidget(button)
-        if row.count() == 0:
-            group.hide()
-        return group
+            button = self._make_button(command)
+            if command in (_commands["Fillet"], _commands["Chamfer"]):
+                self.modify_layout.addWidget(button)
+            else:
+                self.create_layout.addWidget(button)
+            self.secondary_buttons[command] = button
+
+        self.modify_group.setVisible(bool(modifying and self.modify_layout.count()))
+        if primary and primary not in self.buttons:
+            self._rendered_state = None
+            return
+        self._rendered_state = state
 
     @staticmethod
     def _tooltip(label):
         descriptions = {
-            "Create Sketch": "Start a native FreeCAD sketch and choose a plane.",
+            "Create Sketch": "Start a native sketch on the selected plane or face, or on the body's XY plane.",
             "Pad": "Extrude a selected sketch using FreeCAD Part Design.",
             "Pocket": "Cut into a body from a selected sketch.",
             "Fillet": "Round selected edges in the active Part Design body.",
@@ -183,39 +227,103 @@ class TaskSurface(QtWidgets.QDockWidget):
 
     def refresh_state(self):
         has_document = App.ActiveDocument is not None
-        selection = Gui.Selection.getSelectionEx() if has_document else []
-        selected_sketch = any(
-            getattr(item.Object, "TypeId", "") == "Sketcher::SketchObject"
-            for item in selection
-        )
-        has_selection = bool(selection)
-        for command, button in self.buttons.items():
-            command_available = self.available_commands is None or command in self.available_commands
-            if command == "Std_New":
-                button.setEnabled(command_available)
-            elif command == "PartDesign_NewSketch":
-                button.setEnabled(command_available and has_document)
-            elif command in ("PartDesign_Pad", "PartDesign_Pocket"):
-                button.setEnabled(command_available and has_document and selected_sketch)
-            else:
-                button.setEnabled(command_available and has_document and has_selection)
+        try:
+            selection = Gui.Selection.getSelectionEx() if has_document else []
+            gui_document = Gui.activeDocument() if has_document else None
+            in_edit = gui_document.getInEdit() if gui_document else None
+        except Exception:
+            selection = []
+            in_edit = None
 
+        edit_object = getattr(in_edit, "Object", None) or in_edit
+        editing_sketch = getattr(edit_object, "TypeId", "") == "Sketcher::SketchObject"
+        self._sync_native_task_panel(in_edit)
+        selected_sketches = [
+            item.Object for item in selection
+            if getattr(item.Object, "TypeId", "") == "Sketcher::SketchObject"
+        ]
+        closed_sketches = [sketch for sketch in selected_sketches if self._has_closed_profile(sketch)]
+        selected_edges = any(self._item_has_body_edge(item) for item in selection)
+
+        new_design = _commands["New Design"]
+        create_sketch = _commands["Create Sketch"]
+        pad = _commands["Pad"]
+        pocket = _commands["Pocket"]
+        fillet = _commands["Fillet"]
+        chamfer = _commands["Chamfer"]
         if not has_document:
-            hint = "Create a design to start sketching."
-        elif selected_sketch:
-            hint = "Sketch selected · Pad or Pocket is ready."
-        elif has_selection:
-            hint = "Selection ready · choose Fillet or Chamfer when edges are selected."
+            primary, secondary, modifying = new_design, (), False
+            hint = "Start a design here. Next, create a sketch."
+        elif editing_sketch:
+            primary, secondary, modifying = None, (), False
+            hint = "Draw a closed profile, then finish the sketch to continue."
+        elif closed_sketches:
+            primary, secondary, modifying = pad, (pocket, new_design), False
+            hint = "Create a solid from the closed sketch, or choose another sketch operation."
+        elif selected_edges and has_valid_solid:
+            primary, secondary, modifying = create_sketch, (new_design, fillet, chamfer), True
+            hint = "Selected solid edges · choose Fillet or Chamfer to modify them."
         else:
+            primary, secondary, modifying = create_sketch, (new_design,), False
             hint = "Create a sketch on a plane, then draw a closed profile to begin."
+
+        commands = (primary,) + tuple(secondary) if primary else tuple(secondary)
         missing = [
-            label
-            for label in ("Create Sketch", "Pad", "Pocket", "Fillet", "Chamfer")
-            if self.available_commands is not None and _commands[label] not in self.available_commands
+            next(label for label, command in _commands.items() if command == command_id)
+            for command_id in commands
+            if self.available_commands is not None and command_id not in self.available_commands
         ]
         if missing:
-            hint = "Unavailable in this FreeCAD build: " + ", ".join(missing)
+            hint = "This FreeCAD build does not provide: " + ", ".join(missing)
+            if primary is not None and self.available_commands is not None and primary not in self.available_commands:
+                primary = None
+        secondary = tuple(
+            command for command in secondary
+            if self.available_commands is None or command in self.available_commands
+        )
+        self._render_actions(primary, secondary, modifying)
         self.status.setText(hint)
+
+    def _sync_native_task_panel(self, in_edit):
+        main_window = self.parentWidget()
+        if main_window is None:
+            return
+        for dock in main_window.findChildren(QtWidgets.QDockWidget):
+            if dock is self:
+                continue
+            title = dock.windowTitle().strip().casefold()
+            object_name = dock.objectName().strip().casefold()
+            if title == "tasks" or object_name in {"taskdock", "tasksdock"}:
+                dock.setVisible(in_edit is not None)
+
+    @staticmethod
+    def _has_closed_profile(sketch):
+        try:
+            wires = list(sketch.Shape.Wires)
+            return bool(wires) and all(wire.isClosed() for wire in wires)
+        except Exception:
+            return False
+
+    @classmethod
+    def _item_has_body_edge(cls, item):
+        if not any(str(name).startswith("Edge") for name in getattr(item, "SubElementNames", ())):
+            return False
+        try:
+            obj = item.Object
+            body = obj if getattr(obj, "TypeId", "") == "PartDesign::Body" else obj.getParentGeoFeatureGroup()
+            return cls._body_has_valid_solid(body)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _body_has_valid_solid(body):
+        if body is None or getattr(body, "TypeId", "") != "PartDesign::Body":
+            return False
+        try:
+            shape = body.Shape
+            return not shape.isNull() and shape.isValid() and len(shape.Solids) == 1
+        except Exception:
+            return False
 
 
 def register_workbench(workbench):

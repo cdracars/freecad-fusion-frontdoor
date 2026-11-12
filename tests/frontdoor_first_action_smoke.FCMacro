@@ -1,0 +1,204 @@
+"""Exercise Frontdoor's first-action progression in a disposable FreeCAD profile.
+
+Run this macro from a Frontdoor-enabled FreeCAD profile with no active document.
+It records a JSON report at FRONTDOOR_UI_SMOKE_REPORT when that variable is set,
+then closes the test document and FreeCAD window.
+"""
+
+import json
+import os
+import traceback
+
+import FreeCAD as App
+import FreeCADGui as Gui
+import Part
+from PySide import QtCore, QtWidgets
+
+
+_report_path = os.environ.get(
+    "FRONTDOOR_UI_SMOKE_REPORT",
+    os.path.join(App.getUserAppDataDir(), "frontdoor_first_action_smoke.json"),
+)
+_report = {"steps": {}, "failures": []}
+_main = Gui.getMainWindow()
+_finished = False
+
+
+def _surface():
+    return next(
+        (
+            dock
+            for dock in _main.findChildren(QtWidgets.QDockWidget)
+            if dock.objectName() == "FrontdoorDesignTaskSurface"
+        ),
+        None,
+    )
+
+
+def _snapshot(label):
+    dock = _surface()
+    if dock is None:
+        raise RuntimeError("Frontdoor Design task surface was not found.")
+    dock.refresh_state()
+    QtWidgets.QApplication.processEvents()
+    visible_actions = [
+        {"text": button.text(), "command": button.property("commandId"), "primary": button is dock.primary_button}
+        for button in dock.findChildren(QtWidgets.QToolButton)
+        if button.isVisible()
+    ]
+    gui_document = Gui.activeDocument()
+    in_edit = gui_document.getInEdit() if gui_document else None
+    edit_object = getattr(in_edit, "Object", None) or in_edit
+    state = {
+        "active_document": App.ActiveDocument.Name if App.ActiveDocument else None,
+        "primary_command": dock.primary_command,
+        "visible_actions": visible_actions,
+        "hint": dock.status.text(),
+        "editing_object": getattr(edit_object, "Name", None),
+        "modal_dialogs": [
+            widget.windowTitle()
+            for widget in QtWidgets.QApplication.topLevelWidgets()
+            if widget.isVisible() and isinstance(widget, QtWidgets.QDialog)
+        ],
+    }
+    state["native_task_docks"] = [
+        {"title": dock.windowTitle(), "object_name": dock.objectName(), "visible": dock.isVisible()}
+        for dock in _main.findChildren(QtWidgets.QDockWidget)
+        if dock is not _surface() and dock.windowTitle().strip().casefold() == "tasks"
+    ]
+    screen = QtWidgets.QApplication.primaryScreen()
+    state["window_size"] = [_main.width(), _main.height()]
+    state["display_scale_factor"] = screen.devicePixelRatio() if screen else None
+    capture_path = os.path.splitext(_report_path)[0] + "_" + label + ".png"
+    state["window_capture"] = capture_path
+    _main.grab().save(capture_path)
+    _report["steps"][label] = state
+    return dock, state
+
+
+def _require(condition, message):
+    if not condition:
+        _report["failures"].append(message)
+
+
+def _tasks_dock_visible(state):
+    return any(dock["visible"] for dock in state["native_task_docks"])
+
+
+def _write_report():
+    with open(_report_path, "w", encoding="utf-8") as stream:
+        json.dump(_report, stream, indent=2)
+
+
+def _finish():
+    global _finished
+    if _finished:
+        return
+    _finished = True
+    try:
+        gui_document = Gui.activeDocument()
+        if gui_document and gui_document.getInEdit():
+            gui_document.resetEdit()
+        if App.ActiveDocument:
+            App.closeDocument(App.ActiveDocument.Name)
+        _report["cleanup_document_closed"] = App.ActiveDocument is None
+    except Exception:
+        _report["cleanup_error"] = traceback.format_exc()
+    try:
+        _write_report()
+    finally:
+        QtCore.QTimer.singleShot(500, _main.close)
+
+
+def _check_no_document():
+    try:
+        dock, state = _snapshot("no_document")
+        _require(state["active_document"] is None, "Fresh profile unexpectedly opened a document.")
+        _require(state["primary_command"] == "Std_New", "New Design was not the sole primary action.")
+        _require(len(state["visible_actions"]) == 1, "No-document state showed more than one modeling action.")
+        _require("Next, create a sketch." in state["hint"], "No-document hint did not explain the next step.")
+        _require(not _tasks_dock_visible(state), "The empty native Tasks dock remained visible at launch.")
+        if dock.primary_button:
+            dock.primary_button.click()
+        else:
+            raise RuntimeError("New Design primary action is missing.")
+        QtCore.QTimer.singleShot(1800, _check_empty_document)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_empty_document():
+    try:
+        dock, state = _snapshot("empty_document")
+        _require(state["active_document"] is not None, "New Design did not create a document.")
+        _require(state["primary_command"] == "PartDesign_NewSketch", "Create Sketch did not become primary.")
+        _require(
+            all(action["command"] not in {"PartDesign_Pad", "PartDesign_Pocket", "PartDesign_Fillet", "PartDesign_Chamfer"}
+                for action in state["visible_actions"]),
+            "Downstream modeling actions were visible before their prerequisites.",
+        )
+        _require(not _tasks_dock_visible(state), "The native Tasks dock remained visible with no active task.")
+        _main.showNormal()
+        _main.resize(1280, 720)
+        QtWidgets.QApplication.processEvents()
+        dock, compact = _snapshot("compact_empty_document")
+        _require(
+            any(action["primary"] and action["command"] == "PartDesign_NewSketch" for action in compact["visible_actions"]),
+            "Create Sketch was not visible as the primary action at compact window size.",
+        )
+        _require(dock.status.isVisible(), "The next-step hint was clipped at compact window size.")
+        if dock.primary_button:
+            dock.primary_button.click()
+        else:
+            raise RuntimeError("Create Sketch primary action is missing.")
+        QtCore.QTimer.singleShot(1800, _check_sketch_edit)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_sketch_edit():
+    try:
+        dock, state = _snapshot("sketch_edit")
+        _require(state["editing_object"] is not None, "Create Sketch did not enter native sketch edit mode.")
+        _require(dock.primary_command is None, "Solid command button remained active during sketch editing.")
+        _require("closed profile" in state["hint"], "Sketch edit hint did not explain the next step.")
+        _require(not state["modal_dialogs"], "A modal dialog appeared during default XY sketch creation.")
+        _require(_tasks_dock_visible(state), "The native Tasks dock was hidden during sketch editing.")
+        sketch = App.ActiveDocument.getObject(state["editing_object"])
+        corners = ((0, 0), (20, 0), (20, 20), (0, 20))
+        for index, point in enumerate(corners):
+            next_point = corners[(index + 1) % len(corners)]
+            sketch.addGeometry(
+                Part.LineSegment(
+                    App.Vector(point[0], point[1], 0),
+                    App.Vector(next_point[0], next_point[1], 0),
+                ),
+                False,
+            )
+        Gui.activeDocument().resetEdit()
+        QtCore.QTimer.singleShot(1200, _check_closed_profile)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_closed_profile():
+    try:
+        dock, state = _snapshot("closed_profile")
+        sketch = next(
+            (obj for obj in App.ActiveDocument.Objects if obj.TypeId == "Sketcher::SketchObject"),
+            None,
+        )
+        _report["closed_profile_has_wire"] = bool(sketch and dock._has_closed_profile(sketch))
+        _require(not _tasks_dock_visible(state), "The native Tasks dock remained visible after sketch editing ended.")
+        _require(_report["closed_profile_has_wire"], "The generated test sketch did not produce a closed profile.")
+        _require(state["primary_command"] == "PartDesign_Pad", "Pad did not become primary after closing a valid profile.")
+        _finish()
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+QtCore.QTimer.singleShot(5000, _check_no_document)
