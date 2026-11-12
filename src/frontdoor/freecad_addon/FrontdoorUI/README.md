@@ -11,4 +11,4 @@ Prototype actions:
 
 Create Sketch uses Part Design's native command so the sketch belongs to an active Part Design body. If no body exists, Frontdoor creates and activates one; when no face or plane is selected, it preselects the body's XY origin plane. After a native modeling command changes the active workbench, Frontdoor restores its workbench while keeping the native edit task active.
 
-The UI is intentionally limited to the Solid task for now. It keeps FreeCAD's native menus and task dialogs available, and does not patch FreeCAD core. The task surface is hidden when the user leaves the Frontdoor workbench.
+The UI is intentionally limited to the Solid task for now. It keeps FreeCAD's native menus and task dialogs available, and does not patch FreeCAD core. While Frontdoor is idle it hides native toolbar rows to reduce duplicate commands; during sketch editing it shows the native Sketcher toolbars. Use **Frontdoor → Toggle Native Toolbars** to temporarily reveal the regular toolbars. Leaving Frontdoor restores the visibility captured when it was activated. The task surface is hidden when the user leaves the Frontdoor workbench.

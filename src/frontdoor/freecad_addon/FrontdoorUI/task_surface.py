@@ -7,6 +7,10 @@ from PySide import QtCore, QtWidgets
 
 _dock = None
 _timer = None
+_toolbar_visibility = {}
+_toolbar_managed = False
+_native_toolbars_override = False
+_frontdoor_active = False
 _commands = {
     "New Design": "Std_New",
     "Create Sketch": "PartDesign_NewSketch",
@@ -238,6 +242,7 @@ class TaskSurface(QtWidgets.QDockWidget):
         edit_object = getattr(in_edit, "Object", None) or in_edit
         editing_sketch = getattr(edit_object, "TypeId", "") == "Sketcher::SketchObject"
         self._sync_native_task_panel(in_edit)
+        _sync_native_toolbars(editing_sketch)
         selected_sketches = [
             item.Object for item in selection
             if getattr(item.Object, "TypeId", "") == "Sketcher::SketchObject"
@@ -327,8 +332,9 @@ class TaskSurface(QtWidgets.QDockWidget):
 
 
 def register_workbench(workbench):
-    workbench.appendMenu("Frontdoor", ["Frontdoor_NewDesign"])
+    workbench.appendMenu("Frontdoor", ["Frontdoor_NewDesign", "Frontdoor_NativeToolbars"])
     Gui.addCommand("Frontdoor_NewDesign", _NewDesignCommand())
+    Gui.addCommand("Frontdoor_NativeToolbars", _NativeToolbarsCommand())
 
 
 class _NewDesignCommand:
@@ -342,20 +348,141 @@ class _NewDesignCommand:
         Gui.runCommand("Std_New")
 
 
+class _NativeToolbarsCommand:
+    def GetResources(self):
+        return {
+            "MenuText": "Toggle Native Toolbars",
+            "ToolTip": "Temporarily show or hide FreeCAD's standard toolbars while idle",
+        }
+
+    def IsActive(self):
+        return _frontdoor_active and not _is_modeling_task_active()
+
+    def Activated(self):
+        global _native_toolbars_override
+        _native_toolbars_override = not _native_toolbars_override
+        _sync_native_toolbars(_is_modeling_task_active())
+
+
+def _main_window_toolbars():
+    main_window = Gui.getMainWindow()
+    return [
+        toolbar
+        for toolbar in main_window.findChildren(QtWidgets.QToolBar)
+        if toolbar.parentWidget() is main_window
+    ]
+
+
+def _capture_toolbar_visibility():
+    global _toolbar_managed
+    for toolbar in _main_window_toolbars():
+        if toolbar not in _toolbar_visibility:
+            # isHidden() reflects the toolbar's own visibility flag even when
+            # its parent window is not currently visible.
+            _toolbar_visibility[toolbar] = not toolbar.isHidden()
+    _toolbar_managed = True
+
+
+def _is_modeling_task_active():
+    try:
+        gui_document = Gui.activeDocument()
+        return bool(gui_document and gui_document.getInEdit())
+    except Exception:
+        return False
+
+
+def _is_sketcher_toolbar(toolbar):
+    title = toolbar.windowTitle().strip().casefold()
+    return title in {
+        "sketcher",
+        "edit mode",
+        "geometries",
+        "constraints",
+        "sketcher tools",
+        "b-spline tools",
+        "visual helpers",
+    }
+
+
+def _sync_native_toolbars(editing_sketch=False):
+    _capture_toolbar_visibility()
+    toolbars = _main_window_toolbars()
+    if editing_sketch:
+        # The sketch editor's command bars provide geometry and constraint
+        # tools. Keep them available while the remaining duplicate bars stay
+        # out of the task-focused layout.
+        for toolbar in toolbars:
+            toolbar.setVisible(_is_sketcher_toolbar(toolbar))
+        return
+    if not _frontdoor_active:
+        return
+    if _native_toolbars_override:
+        for toolbar in toolbars:
+            toolbar.setVisible(_toolbar_visibility.get(toolbar, True))
+        return
+    for toolbar in toolbars:
+        toolbar.hide()
+
+
+def _restore_native_toolbars():
+    global _toolbar_managed, _native_toolbars_override
+    if not _toolbar_managed:
+        return
+    for toolbar, was_visible in list(_toolbar_visibility.items()):
+        try:
+            toolbar.setVisible(was_visible)
+        except RuntimeError:
+            # A workbench may have destroyed an add-on toolbar on shutdown.
+            pass
+    _toolbar_visibility.clear()
+    _toolbar_managed = False
+    _native_toolbars_override = False
+
+
 def show():
-    global _dock, _timer
+    global _dock, _timer, _frontdoor_active
+    _frontdoor_active = True
     main_window = Gui.getMainWindow()
     if _dock is None:
         _dock = TaskSurface(main_window)
         main_window.addDockWidget(QtCore.Qt.DockWidgetArea.TopDockWidgetArea, _dock)
     _dock.show()
     _dock.raise_()
+    gui_document = Gui.activeDocument()
+    in_edit = gui_document.getInEdit() if gui_document else None
+    edit_object = getattr(in_edit, "Object", None) or in_edit
+    _sync_native_toolbars(
+        getattr(edit_object, "TypeId", "") == "Sketcher::SketchObject"
+    )
     if _timer is None:
         _timer = QtCore.QTimer(_dock)
         _timer.timeout.connect(_dock.refresh_state)
+    if not _timer.isActive():
         _timer.start(350)
 
 
 def hide():
+    global _frontdoor_active
+    _frontdoor_active = False
     if _dock is not None:
         _dock.hide()
+    if _is_modeling_task_active():
+        # Native Part Design commands briefly switch workbenches while opening
+        # their edit task. Wait for the command handler's return to Frontdoor
+        # before deciding whether the original toolbar layout should be restored.
+        QtCore.QTimer.singleShot(300, _restore_after_workbench_switch)
+    else:
+        _restore_native_toolbars()
+        if _timer is not None:
+            _timer.stop()
+
+
+def _restore_after_workbench_switch():
+    try:
+        if Gui.activeWorkbench().name() == "FrontdoorWorkbench":
+            return
+    except Exception:
+        pass
+    _restore_native_toolbars()
+    if _timer is not None:
+        _timer.stop()

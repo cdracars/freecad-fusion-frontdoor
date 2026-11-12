@@ -13,6 +13,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 import Part
 from PySide import QtCore, QtWidgets
+import task_surface as _task_surface_module
 
 
 _report_path = os.environ.get(
@@ -22,6 +23,7 @@ _report_path = os.environ.get(
 _report = {"steps": {}, "failures": []}
 _main = Gui.getMainWindow()
 _finished = False
+_initial_toolbar_visibility = {}
 
 
 def _surface():
@@ -33,6 +35,14 @@ def _surface():
         ),
         None,
     )
+
+
+def _toolbars():
+    return [
+        toolbar
+        for toolbar in _main.findChildren(QtWidgets.QToolBar)
+        if toolbar.parentWidget() is _main
+    ]
 
 
 def _snapshot(label):
@@ -66,6 +76,16 @@ def _snapshot(label):
         for dock in _main.findChildren(QtWidgets.QDockWidget)
         if dock is not _surface() and dock.windowTitle().strip().casefold() == "tasks"
     ]
+    state["toolbars"] = [
+        {
+            "title": toolbar.windowTitle(),
+            "object_name": toolbar.objectName(),
+            "hidden": toolbar.isHidden(),
+            "visible": toolbar.isVisible(),
+        }
+        for toolbar in _toolbars()
+    ]
+    state["menu_bar_visible"] = _main.menuBar().isVisible()
     screen = QtWidgets.QApplication.primaryScreen()
     state["window_size"] = [_main.width(), _main.height()]
     state["display_scale_factor"] = screen.devicePixelRatio() if screen else None
@@ -111,6 +131,7 @@ def _finish():
 
 
 def _check_no_document():
+    global _initial_toolbar_visibility
     try:
         dock, state = _snapshot("no_document")
         _require(state["active_document"] is None, "Fresh profile unexpectedly opened a document.")
@@ -118,6 +139,70 @@ def _check_no_document():
         _require(len(state["visible_actions"]) == 1, "No-document state showed more than one modeling action.")
         _require("Next, create a sketch." in state["hint"], "No-document hint did not explain the next step.")
         _require(not _tasks_dock_visible(state), "The empty native Tasks dock remained visible at launch.")
+        _require(state["menu_bar_visible"], "Frontdoor hid the native menu bar.")
+        _require(
+            all(toolbar["hidden"] for toolbar in state["toolbars"]),
+            "Native toolbars were visible in Frontdoor's idle state.",
+        )
+        original_visibility = dict(_task_surface_module._toolbar_visibility)
+        if original_visibility:
+            simulated_hidden = next(iter(original_visibility))
+            original_visibility[simulated_hidden] = False
+            _task_surface_module._toolbar_visibility[simulated_hidden] = False
+            _report["simulated_preexisting_hidden_toolbar"] = [
+                simulated_hidden.windowTitle(),
+                simulated_hidden.objectName(),
+            ]
+        _initial_toolbar_visibility = {
+            (toolbar.windowTitle(), toolbar.objectName()): visible
+            for toolbar, visible in original_visibility.items()
+        }
+        Gui.runCommand("Frontdoor_NativeToolbars")
+        QtWidgets.QApplication.processEvents()
+        _require(
+            all(toolbar.isHidden() == (not was_visible)
+                for toolbar, was_visible in original_visibility.items()),
+            "Native Toolbars did not restore the captured toolbar visibility.",
+        )
+        Gui.runCommand("Frontdoor_NativeToolbars")
+        QtWidgets.QApplication.processEvents()
+        _require(
+            all(toolbar.isHidden() for toolbar in _toolbars()),
+            "Native Toolbars did not return to the focused idle layout.",
+        )
+        Gui.activateWorkbench("PartWorkbench")
+        QtCore.QTimer.singleShot(700, _check_native_workbench_restore)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_native_workbench_restore():
+    try:
+        toolbar_states = {
+            (toolbar.windowTitle(), toolbar.objectName()): not toolbar.isHidden()
+            for toolbar in _toolbars()
+        }
+        for key, expected_visible in _initial_toolbar_visibility.items():
+            if key in toolbar_states:
+                _require(
+                    toolbar_states[key] == expected_visible,
+                    "Leaving Frontdoor did not restore toolbar visibility for %r." % (key,),
+                )
+        Gui.activateWorkbench("FrontdoorWorkbench")
+        QtCore.QTimer.singleShot(700, _check_frontdoor_toolbar_restore)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_frontdoor_toolbar_restore():
+    try:
+        dock, state = _snapshot("frontdoor_return")
+        _require(
+            all(toolbar["hidden"] for toolbar in state["toolbars"]),
+            "Frontdoor did not reapply its focused toolbar layout on return.",
+        )
         if dock.primary_button:
             dock.primary_button.click()
         else:
@@ -139,6 +224,10 @@ def _check_empty_document():
             "Downstream modeling actions were visible before their prerequisites.",
         )
         _require(not _tasks_dock_visible(state), "The native Tasks dock remained visible with no active task.")
+        _require(
+            all(toolbar["hidden"] for toolbar in state["toolbars"]),
+            "Native toolbars were visible in the empty-document state.",
+        )
         _main.showNormal()
         _main.resize(1280, 720)
         QtWidgets.QApplication.processEvents()
@@ -166,6 +255,10 @@ def _check_sketch_edit():
         _require("closed profile" in state["hint"], "Sketch edit hint did not explain the next step.")
         _require(not state["modal_dialogs"], "A modal dialog appeared during default XY sketch creation.")
         _require(_tasks_dock_visible(state), "The native Tasks dock was hidden during sketch editing.")
+        _require(
+            any(toolbar["visible"] for toolbar in state["toolbars"]),
+            "No native toolbars were available during sketch editing.",
+        )
         sketch = App.ActiveDocument.getObject(state["editing_object"])
         corners = ((0, 0), (20, 0), (20, 20), (0, 20))
         for index, point in enumerate(corners):
@@ -193,6 +286,10 @@ def _check_closed_profile():
         )
         _report["closed_profile_has_wire"] = bool(sketch and dock._has_closed_profile(sketch))
         _require(not _tasks_dock_visible(state), "The native Tasks dock remained visible after sketch editing ended.")
+        _require(
+            all(toolbar["hidden"] for toolbar in state["toolbars"]),
+            "Native toolbars remained visible after sketch editing ended.",
+        )
         _require(_report["closed_profile_has_wire"], "The generated test sketch did not produce a closed profile.")
         _require(state["primary_command"] == "PartDesign_Pad", "Pad did not become primary after closing a valid profile.")
         _finish()

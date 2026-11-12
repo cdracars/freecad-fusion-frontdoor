@@ -18,6 +18,30 @@ The primary interface must not be a list of every installed FreeCAD workbench. A
 - Advanced commands and less common FreeCAD capabilities are not added to the first Solid surface merely because they exist. Add them only after a specific user task justifies them.
 - Keep an obvious route to Full FreeCAD and a route back to Frontdoor.
 
+## Next GUI iteration: reduce duplicate native toolbar chrome
+
+**Status: implemented; Windows smoke verified on isolated FreeCAD 1.1.4 at 100% and 150% Qt scale factors.** Frontdoor's task surface already presents the next modeling action, while FreeCAD's native toolbars add a second, dense command surface above it. This iteration makes the Frontdoor workbench feel intentional without removing FreeCAD menus or native task controls. Linux and other FreeCAD builds remain unverified.
+
+- While Frontdoor is active and no native modeling task is being edited, keep FreeCAD's menu bar, document tabs, status bar, model tree, and viewport. Hide the native toolbar rows that duplicate or distract from Frontdoor's task actions.
+- Do not remove, replace, or intercept native menus or command behavior. File, Edit, View, and other menus remain available. Frontdoor's own task actions remain the primary modeling entry point.
+- During native Sketcher edit, expose FreeCAD 1.1.4's `Sketcher`, `Edit Mode`, `Geometries`, `Constraints`, `Sketcher Tools`, `B-Spline Tools`, and `Visual Helpers` toolbars so drawing and constraint commands are available. Keep unrelated toolbar rows hidden. Do not hide native task controls or cancel an active edit.
+- When sketch edit ends, return to the focused Frontdoor toolbar state. When the user leaves Frontdoor, restore the toolbar visibility that was in effect before Frontdoor changed it.
+- Provide a visible, reversible **Toggle Native Toolbars** command in the Frontdoor menu while idle so users can temporarily reveal the regular toolbar set without leaving the task workflow. The command must not persistently rewrite the user's toolbar layout.
+- Toolbar control is scoped to the Frontdoor process/profile and is best-effort: unknown or add-on toolbars must not be deleted, renamed, or have their commands modified. If visibility cannot be determined safely, leave that toolbar visible.
+
+### Acceptance checks for native toolbar focus
+
+- On Frontdoor idle launch, the menu bar and normal window/status affordances remain usable, while duplicate native toolbar rows do not compete with the task surface.
+- Start native sketch editing and verify the Sketcher drawing/constraining toolbars are available throughout the edit. Finish or cancel the edit and verify Frontdoor's idle toolbar state returns without interrupting the modeling task.
+- Toggle **Native Toolbars** on and off and verify each toolbar's prior visibility is restored correctly, including toolbars that were already hidden by the user.
+- Switch away from Frontdoor and verify the pre-Frontdoor toolbar visibility is restored. Switch back and verify the focused Frontdoor state is reapplied.
+- Close FreeCAD and verify the ordinary FreeCAD profile's toolbar preferences are unchanged.
+- Exercise fresh launch, idle, sketch edit, completed edit, canceled edit, temporary toggle, and workbench exit on isolated Windows FreeCAD 1.1.4. Recheck at 100% and 150% scaling and record any version-specific toolbar names or visibility limitations.
+
+### Windows smoke evidence (2026-11-12)
+
+On the isolated Windows FreeCAD 1.1.4 profile, the task smoke passed at Qt scale factors 1.0 and 1.5 in a 1280 × 720 logical-pixel window. It confirmed that idle Frontdoor hides the native toolbar rows and preserves the menu bar; the `Toggle Native Toolbars` command restores the visibility captured on Frontdoor entry and toggles back to the focused layout; leaving for Part restores that captured visibility; returning to Frontdoor reapplies the focused layout. The probe deliberately marked the File toolbar as previously hidden to verify that the toggle and workbench exit preserve a hidden state. During sketch edit, all seven observed Sketcher toolbar groups listed above were visible while unrelated groups stayed hidden. The native `Tasks` dock remained usable. No smoke assertion failed, the test document closed, and the managed FreeCAD process exited with status 0 at both scale factors. This verifies the toolbar behavior on the tested build, not Linux, other FreeCAD releases, or Fusion-user preference.
+
 ## Next GUI iteration: make the first action obvious
 
 **Status: implemented; Windows smoke verified with isolated FreeCAD 1.1.4.** This iteration is limited to the first `Design > Solid` launch and the transition into the first sketch. It does not redesign the complete ribbon, other task tabs, or the launcher. Linux and other FreeCAD versions remain unverified for this iteration.
