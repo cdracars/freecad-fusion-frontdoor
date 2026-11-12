@@ -391,16 +391,12 @@ def _is_modeling_task_active():
         return False
 
 
-def _is_sketcher_toolbar(toolbar):
+def _is_focused_sketcher_toolbar(toolbar):
     title = toolbar.windowTitle().strip().casefold()
     return title in {
-        "sketcher",
         "edit mode",
         "geometries",
         "constraints",
-        "sketcher tools",
-        "b-spline tools",
-        "visual helpers",
     }
 
 
@@ -412,7 +408,7 @@ def _sync_native_toolbars(editing_sketch=False):
         # tools. Keep them available while the remaining duplicate bars stay
         # out of the task-focused layout.
         for toolbar in toolbars:
-            toolbar.setVisible(_is_sketcher_toolbar(toolbar))
+            toolbar.setVisible(_is_focused_sketcher_toolbar(toolbar))
         return
     if not _frontdoor_active:
         return

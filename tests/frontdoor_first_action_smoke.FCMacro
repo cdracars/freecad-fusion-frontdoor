@@ -82,6 +82,7 @@ def _snapshot(label):
             "object_name": toolbar.objectName(),
             "hidden": toolbar.isHidden(),
             "visible": toolbar.isVisible(),
+            "actions": [action.text() for action in toolbar.actions() if action.text()],
         }
         for toolbar in _toolbars()
     ]
@@ -255,9 +256,45 @@ def _check_sketch_edit():
         _require("closed profile" in state["hint"], "Sketch edit hint did not explain the next step.")
         _require(not state["modal_dialogs"], "A modal dialog appeared during default XY sketch creation.")
         _require(_tasks_dock_visible(state), "The native Tasks dock was hidden during sketch editing.")
+        sketcher_group_names = {
+            "Sketcher",
+            "Edit Mode",
+            "Geometries",
+            "Constraints",
+            "Sketcher Tools",
+            "B-Spline Tools",
+            "Visual Helpers",
+        }
+        visible_sketcher_groups = {
+            toolbar["title"]
+            for toolbar in state["toolbars"]
+            if toolbar["title"] in sketcher_group_names and toolbar["visible"]
+        }
         _require(
-            any(toolbar["visible"] for toolbar in state["toolbars"]),
-            "No native toolbars were available during sketch editing.",
+            visible_sketcher_groups == {"Edit Mode", "Geometries", "Constraints"},
+            "Sketch edit did not show exactly the three focused Sketcher toolbars.",
+        )
+        actions_by_group = {
+            toolbar["title"]: set(toolbar["actions"])
+            for toolbar in state["toolbars"]
+        }
+        _require(
+            {"Line", "Rectangle"}.issubset(actions_by_group.get("Geometries", set())),
+            "The focused geometry toolbar is missing Line or Rectangle.",
+        )
+        _require(
+            {"Dimension", "Horizontal/Vertical Constraint"}.issubset(
+                actions_by_group.get("Constraints", set())
+            ),
+            "The focused constraint toolbar is missing common constraints.",
+        )
+        _require(
+            "Leave Sketch" in actions_by_group.get("Edit Mode", set()),
+            "The focused edit toolbar is missing Leave Sketch.",
+        )
+        _require(
+            not _task_surface_module._NativeToolbarsCommand().IsActive(),
+            "Toggle Native Toolbars remained active during a native sketch task.",
         )
         sketch = App.ActiveDocument.getObject(state["editing_object"])
         corners = ((0, 0), (20, 0), (20, 20), (0, 20))
@@ -292,6 +329,60 @@ def _check_closed_profile():
         )
         _require(_report["closed_profile_has_wire"], "The generated test sketch did not produce a closed profile.")
         _require(state["primary_command"] == "PartDesign_Pad", "Pad did not become primary after closing a valid profile.")
+        sketch = next(
+            (obj for obj in App.ActiveDocument.Objects if obj.TypeId == "Sketcher::SketchObject"),
+            None,
+        )
+        if sketch is None:
+            raise RuntimeError("The test sketch disappeared before Pad task validation.")
+        Gui.Selection.clearSelection()
+        Gui.Selection.addSelection(sketch)
+        if not dock.buttons.get("PartDesign_Pad"):
+            raise RuntimeError("Pad action button is missing after sketch completion.")
+        dock.buttons["PartDesign_Pad"].click()
+        QtCore.QTimer.singleShot(1600, _check_feature_task)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_feature_task():
+    try:
+        _, state = _snapshot("feature_task")
+        _require(state["editing_object"] is not None, "Pad did not enter its native edit task.")
+        _require(_tasks_dock_visible(state), "The native Tasks dock was hidden during Pad editing.")
+        _require(
+            not any(
+                toolbar["visible"]
+                and toolbar["title"] in {
+                    "Sketcher",
+                    "Edit Mode",
+                    "Geometries",
+                    "Constraints",
+                    "Sketcher Tools",
+                    "B-Spline Tools",
+                    "Visual Helpers",
+                }
+                for toolbar in state["toolbars"]
+            ),
+            "Sketcher-only toolbars appeared during a non-sketch feature task.",
+        )
+        Gui.activeDocument().resetEdit()
+        QtCore.QTimer.singleShot(900, _check_after_feature_cancel)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_after_feature_cancel():
+    try:
+        _, state = _snapshot("feature_task_canceled")
+        _require(state["editing_object"] is None, "Cancel did not close the Pad edit task.")
+        _require(not _tasks_dock_visible(state), "The native Tasks dock remained visible after Pad cancel.")
+        _require(
+            all(toolbar["hidden"] for toolbar in state["toolbars"]),
+            "Native toolbar rows remained visible after Pad cancel.",
+        )
         _finish()
     except Exception:
         _report["probe_error"] = traceback.format_exc()

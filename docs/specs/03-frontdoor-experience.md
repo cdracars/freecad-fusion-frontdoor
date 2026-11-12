@@ -24,7 +24,7 @@ The primary interface must not be a list of every installed FreeCAD workbench. A
 
 - While Frontdoor is active and no native modeling task is being edited, keep FreeCAD's menu bar, document tabs, status bar, model tree, and viewport. Hide the native toolbar rows that duplicate or distract from Frontdoor's task actions.
 - Do not remove, replace, or intercept native menus or command behavior. File, Edit, View, and other menus remain available. Frontdoor's own task actions remain the primary modeling entry point.
-- During native Sketcher edit, expose FreeCAD 1.1.4's `Sketcher`, `Edit Mode`, `Geometries`, `Constraints`, `Sketcher Tools`, `B-Spline Tools`, and `Visual Helpers` toolbars so drawing and constraint commands are available. Keep unrelated toolbar rows hidden. Do not hide native task controls or cancel an active edit.
+- During native Sketcher edit, keep the drawing, constraint, and finish-editing tools available without interrupting native task controls. The focused toolbar selection is specified in the next iteration below.
 - When sketch edit ends, return to the focused Frontdoor toolbar state. When the user leaves Frontdoor, restore the toolbar visibility that was in effect before Frontdoor changed it.
 - Provide a visible, reversible **Toggle Native Toolbars** command in the Frontdoor menu while idle so users can temporarily reveal the regular toolbar set without leaving the task workflow. The command must not persistently rewrite the user's toolbar layout.
 - Toolbar control is scoped to the Frontdoor process/profile and is best-effort: unknown or add-on toolbars must not be deleted, renamed, or have their commands modified. If visibility cannot be determined safely, leave that toolbar visible.
@@ -40,7 +40,30 @@ The primary interface must not be a list of every installed FreeCAD workbench. A
 
 ### Windows smoke evidence (2026-11-12)
 
-On the isolated Windows FreeCAD 1.1.4 profile, the task smoke passed at Qt scale factors 1.0 and 1.5 in a 1280 × 720 logical-pixel window. It confirmed that idle Frontdoor hides the native toolbar rows and preserves the menu bar; the `Toggle Native Toolbars` command restores the visibility captured on Frontdoor entry and toggles back to the focused layout; leaving for Part restores that captured visibility; returning to Frontdoor reapplies the focused layout. The probe deliberately marked the File toolbar as previously hidden to verify that the toggle and workbench exit preserve a hidden state. During sketch edit, all seven observed Sketcher toolbar groups listed above were visible while unrelated groups stayed hidden. The native `Tasks` dock remained usable. No smoke assertion failed, the test document closed, and the managed FreeCAD process exited with status 0 at both scale factors. This verifies the toolbar behavior on the tested build, not Linux, other FreeCAD releases, or Fusion-user preference.
+On the isolated Windows FreeCAD 1.1.4 profile, the task smoke passed at Qt scale factors 1.0 and 1.5 in a 1280 × 720 logical-pixel window. It confirmed that idle Frontdoor hides native toolbar rows and preserves the menu bar; the `Toggle Native Toolbars` command restores the visibility captured on Frontdoor entry and toggles back to the focused layout; leaving for Part restores that captured visibility; returning to Frontdoor reapplies the focused layout. The probe deliberately marked the File toolbar as previously hidden to verify that the toggle and workbench exit preserve a hidden state. In this pass, all seven observed Sketcher toolbar groups appeared during edit; the next iteration below narrows this to the groups used for drawing, constraints, and finishing a basic sketch. The native `Tasks` dock remained usable. No smoke assertion failed, the test document closed, and the managed FreeCAD process exited with status 0 at both scale factors. This verifies the toolbar behavior on the tested build, not Linux, other FreeCAD releases, or Fusion-user preference.
+
+## Next GUI iteration: keep sketch edit tools focused
+
+**Status: implemented; Windows smoke verified on isolated FreeCAD 1.1.4 at 100% and 150% Qt scale factors.** The Windows FreeCAD 1.1.4 toolbar inventory showed seven Sketcher groups. Several focus on managing, transforming, or refining specialized geometry: the Sketcher group includes attach/merge/mirror actions, Sketcher Tools includes transforms and offsets, B-Spline Tools contains spline-specific editing commands, and Visual Helpers manages selection overlays. These compete with the first task: draw a profile, apply constraints, and finish the sketch. Linux and other FreeCAD builds remain unverified.
+
+- During native sketch edit, show only `Edit Mode`, `Geometries`, and `Constraints` toolbar groups. These provide Leave Sketch, common profile geometry, and common dimensions/constraints.
+- Hide the `Sketcher`, `Sketcher Tools`, `B-Spline Tools`, and `Visual Helpers` groups during basic sketch edit. Their native commands remain available through FreeCAD's menus or the native toolbar restore path; do not unregister or disable commands.
+- Keep FreeCAD's sketch task panel and its native accept/cancel controls visible. Maintain Frontdoor's one-line next-step hint.
+- When sketch edit ends, hide the native Sketcher groups again and restore the idle Frontdoor layout. A different native edit task must not accidentally show Sketcher-only toolbar groups.
+- The `Toggle Native Toolbars` menu command is idle-only. Do not offer it as active during a native task where changing toolbar visibility could obscure editor tools.
+- Treat toolbar names not in the known FreeCAD Sketcher set conservatively: preserve their commands and their captured visibility on workbench exit.
+
+### Acceptance checks for focused sketch tools
+
+- In a sketch-edit task, `Geometries`, `Constraints`, and `Edit Mode` are visible, including Line/Rectangle, Dimension/Horizontal/Vertical, and Leave Sketch actions.
+- `Sketcher`, `Sketcher Tools`, `B-Spline Tools`, and `Visual Helpers` are hidden while editing a basic sketch; no command is unregistered or removed from menus.
+- The native Tasks panel stays visible, sketch geometry can still be created, and finishing/canceling the sketch returns to Frontdoor's idle toolbar state.
+- A non-sketch native task does not expose Sketcher-only groups.
+- At 100% and 150% Qt scaling, the visible toolbar row set remains usable in a 1280 × 720 logical-pixel window.
+
+### Windows smoke evidence (2026-11-12)
+
+On isolated FreeCAD 1.1.4, the smoke passed at Qt scale factors 1.0 and 1.5 in a 1280 × 720 logical-pixel window. During sketch editing, the only visible Sketcher groups were `Edit Mode`, `Geometries`, and `Constraints`; action assertions confirmed Line, Rectangle, Dimension, Horizontal/Vertical Constraint, and Leave Sketch are present. The Sketcher management, transform, B-Spline, and Visual Helpers groups were hidden. The native Tasks panel remained visible. The probe then entered a native Pad edit task and confirmed Sketcher-only groups stayed hidden; canceling Pad returned to the idle state. All smoke assertions passed, the test document closed, and the managed FreeCAD process exited with status 0 at both scale factors. The probe adds geometry through FreeCAD's API, so mouse-drawn sketching and Fusion-user acceptance remain unverified.
 
 ## Next GUI iteration: make the first action obvious
 

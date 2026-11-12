@@ -18,7 +18,7 @@
 | Sketch, Pad, Pocket | Deterministic API geometry + actual Frontdoor buttons; volumes/validity verified | New Design and Create Sketch buttons; body-owned XY sketch entered edit mode | Windows sketch entry verified; geometry/Pad/Pocket open |
 | Fillet/Chamfer branches | Deep-copy branches produced valid single solids | Not run | Linux locally verified; Windows open; 1 mm saved property assertion remains open |
 | Smoke process ownership and cleanup | Three-window run closed and confirmed; current modeling run closed | Single test GUI exited with status 0; exact managed executable absent afterward | Linux multi-window harness verified; Windows multi-window lifecycle open |
-| Frontdoor native toolbar focus | Not run | Idle rows hidden; menus retained; Sketcher groups shown during edit; toggle and workbench exit/return restore expected visibility at Qt scale 1.0 and 1.5 | Windows 1.1.4 verified; other builds open |
+| Frontdoor native toolbar focus | Not run | Idle rows hidden; menus retained; only Edit Mode/Geometries/Constraints shown during sketch; Pad task excludes Sketcher rows; toggle and workbench exit/return restore expected visibility at Qt scale 1.0 and 1.5 | Windows 1.1.4 verified; other builds open |
 | Managed FreeCAD download/install | Not applicable in this environment | Official 1.1.4 installer verified and installed to app-owned test path; `FreeCADCmd --version` returned 1.1.4 | Windows managed install path verified in isolated test root |
 | SHA-256 and publisher verification | Code present | Release digest matched; Authenticode status `Valid`; signer accepted | Windows verification passed for 1.1.4 asset |
 | Profile environment isolation | Used by local test harness | GUI reported `App.getUserAppDataDir()` inside the isolated Fusion profile | Both platforms locally verified for tested launches |
@@ -41,6 +41,10 @@ This run verifies command progression and dock visibility, not visual acceptance
 ### Windows native toolbar focus evidence (2026-11-12)
 
 Ran the expanded [`tests/frontdoor_first_action_smoke.FCMacro`](../../tests/frontdoor_first_action_smoke.FCMacro) after staging the current Frontdoor workbench into the isolated FreeCAD 1.1.4 Fusion test profile. At `QT_SCALE_FACTOR=1.0` and `1.5`, all assertions passed in a 1280 × 720 logical window. The probe confirmed that idle Frontdoor hides native toolbar rows while the menu bar remains visible; the `Toggle Native Toolbars` command restores their captured visibility and toggles back; switching to Part restores visibility and returning to Frontdoor reapplies its focused state. The seven FreeCAD 1.1.4 Sketcher toolbar groups were visible during sketch editing, while unrelated toolbar groups remained hidden. The test sketch progressed through edit and closed-profile states; the document closed, the managed FreeCAD process exited with status 0, and no FreeCAD process remained afterward. This is platform/build-specific UI evidence, not user testing or a guarantee for other FreeCAD releases.
+
+### Windows focused sketch toolbar evidence (2026-11-12)
+
+The same isolated FreeCAD 1.1.4 smoke passed at both Qt scale factors. During sketch edit, its toolbar inventory and action assertions found exactly `Edit Mode`, `Geometries`, and `Constraints` visible, including Line, Rectangle, Dimension, Horizontal/Vertical Constraint, and Leave Sketch. Sketcher management, transform, B-Spline, and Visual Helpers groups were hidden. A native Pad edit remained usable without exposing Sketcher-only toolbar groups; canceling Pad restored the idle Frontdoor layout. The test document and managed FreeCAD process exited cleanly. Sketch geometry was inserted by the test macro, not drawn with a mouse.
 
 ## Required local test flow
 
