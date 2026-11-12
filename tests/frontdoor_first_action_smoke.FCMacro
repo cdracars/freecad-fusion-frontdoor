@@ -148,6 +148,11 @@ def _tasks_dock_visible(state):
     return any(dock["visible"] for dock in state["native_task_docks"])
 
 
+def _history_count(document, attribute):
+    value = getattr(document, attribute, 0)
+    return value() if callable(value) else value
+
+
 def _trigger_and_cancel_dialog(command, timeout_ms=4000):
     dock = _surface()
     action = dock.quick_access_actions.get(command)
@@ -373,6 +378,19 @@ def _check_empty_document():
         _finish()
 
 
+def _add_test_profile(sketch):
+    corners = ((0, 0), (20, 0), (20, 20), (0, 20))
+    for index, point in enumerate(corners):
+        next_point = corners[(index + 1) % len(corners)]
+        sketch.addGeometry(
+            Part.LineSegment(
+                App.Vector(point[0], point[1], 0),
+                App.Vector(next_point[0], next_point[1], 0),
+            ),
+            False,
+        )
+
+
 def _check_sketch_edit():
     try:
         dock, state = _snapshot("sketch_edit")
@@ -430,19 +448,29 @@ def _check_sketch_edit():
             not _task_surface_module._NativeToolbarsCommand().IsActive(),
             "Toggle Native Toolbars remained active during a native sketch task.",
         )
+        if _report.get("quick_access_history_tested"):
+            sketch = App.ActiveDocument.getObject(state["editing_object"])
+            _add_test_profile(sketch)
+            Gui.activeDocument().resetEdit()
+            QtCore.QTimer.singleShot(1200, _check_closed_profile)
+            return
         sketch = App.ActiveDocument.getObject(state["editing_object"])
-        corners = ((0, 0), (20, 0), (20, 20), (0, 20))
-        for index, point in enumerate(corners):
-            next_point = corners[(index + 1) % len(corners)]
-            sketch.addGeometry(
-                Part.LineSegment(
-                    App.Vector(point[0], point[1], 0),
-                    App.Vector(next_point[0], next_point[1], 0),
-                ),
-                False,
-            )
-        Gui.activeDocument().resetEdit()
-        QtCore.QTimer.singleShot(1200, _check_closed_profile)
+        sketch_name = sketch.Name
+        object_names_before_undo = {obj.Name for obj in App.ActiveDocument.Objects}
+        undo_count_before = _history_count(App.ActiveDocument, "UndoCount")
+        undo_button = dock.quick_access.widgetForAction(
+            dock.quick_access_actions["Std_Undo"]
+        )
+        _require(undo_button is not None and undo_button.isEnabled(), "Quick Access Undo was not enabled for the native sketch transaction.")
+        Gui.Selection.clearSelection()
+        sketch = None
+        _report["quick_access_undo_before"] = {
+            "objects": sorted(object_names_before_undo),
+            "undo_count": undo_count_before,
+        }
+        _require(undo_count_before > 0, "The sketch edit did not create a native undo history entry.")
+        undo_button.click()
+        QtCore.QTimer.singleShot(400, lambda: _check_after_quick_access_undo(sketch_name, object_names_before_undo))
     except Exception:
         _report["probe_error"] = traceback.format_exc()
         _finish()
@@ -475,6 +503,74 @@ def _check_closed_profile():
             raise RuntimeError("Pad action button is missing after sketch completion.")
         dock.buttons["PartDesign_Pad"].click()
         QtCore.QTimer.singleShot(1600, _check_feature_task)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_after_quick_access_undo(sketch_name, object_names_before_undo):
+    try:
+        dock, state = _snapshot("quick_access_undo")
+        object_names_after_undo = {obj.Name for obj in App.ActiveDocument.Objects}
+        redo_count_after_undo = _history_count(App.ActiveDocument, "RedoCount")
+        redo_button = dock.quick_access.widgetForAction(
+            dock.quick_access_actions["Std_Redo"]
+        )
+        _report["quick_access_undo"] = {
+            "objects_before": sorted(object_names_before_undo),
+            "objects_after": sorted(object_names_after_undo),
+            "undo_count_after": _history_count(App.ActiveDocument, "UndoCount"),
+            "redo_count_after": redo_count_after_undo,
+            "redo_enabled_after": redo_button.isEnabled() if redo_button else False,
+        }
+        _require(
+            sketch_name in object_names_before_undo and sketch_name not in object_names_after_undo,
+            "Quick Access Undo did not undo the native sketch creation transaction.",
+        )
+        _require(
+            redo_count_after_undo > 0 and redo_button is not None and redo_button.isEnabled(),
+            "Quick Access Undo did not enable native Redo.",
+        )
+        if redo_button is None or not redo_button.isEnabled():
+            _finish()
+            return
+        redo_button.click()
+        QtCore.QTimer.singleShot(400, lambda: _check_after_quick_access_redo(sketch_name, object_names_before_undo))
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _finish()
+
+
+def _check_after_quick_access_redo(sketch_name, object_names_before_undo):
+    try:
+        dock, state = _snapshot("quick_access_redo")
+        object_names_after_redo = {obj.Name for obj in App.ActiveDocument.Objects}
+        sketch = App.ActiveDocument.getObject(sketch_name)
+        _report["quick_access_redo"] = {
+            "objects_before": sorted(object_names_before_undo - {sketch_name}),
+            "objects_after": sorted(object_names_after_redo),
+            "undo_count_after": _history_count(App.ActiveDocument, "UndoCount"),
+            "redo_count_after": _history_count(App.ActiveDocument, "RedoCount"),
+        }
+        _require(
+            object_names_after_redo == object_names_before_undo and sketch is not None,
+            "Quick Access Redo did not restore the sketch state.",
+        )
+        if sketch is None:
+            raise RuntimeError("Redo did not restore the sketch needed for Pad validation.")
+        _require(not sketch.Geometry, "Redo did not restore the sketch's pre-geometry state.")
+        _report["quick_access_history_tested"] = True
+        _report["quick_access_history_verified"] = not _report["failures"]
+        document_name = App.ActiveDocument.Name
+        App.closeDocument(document_name)
+        dock.refresh_state()
+        QtWidgets.QApplication.processEvents()
+        _require(dock.primary_command == "Std_New", "Frontdoor did not return to New Design after closing the history probe document.")
+        if dock.primary_button:
+            dock.primary_button.click()
+            QtCore.QTimer.singleShot(1500, _check_empty_document)
+        else:
+            raise RuntimeError("New Design was not available after closing the history probe document.")
     except Exception:
         _report["probe_error"] = traceback.format_exc()
         _finish()

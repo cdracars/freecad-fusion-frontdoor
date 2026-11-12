@@ -76,7 +76,7 @@ On isolated FreeCAD 1.1.4, the smoke passed at Qt scale factors 1.0 and 1.5 in a
 - Do not add a second New control: the `New Design` task action remains the only New entry point in the Solid workspace.
 - Keep the Frontdoor action hierarchy and native toolbar focus behavior unchanged. Quick access remains visible during sketch editing without obscuring native task controls.
 
-The isolated Windows smoke confirmed the four controls are the same native `QAction` objects used by FreeCAD, checked their icons, accessible names and enabled states, and canceled the native Open and Save dialogs while confirming Frontdoor remained usable. The smoke passed at 1280 × 720 logical pixels at both scale factors, with sketch editing and a feature task still working. It does not simulate a model-history Undo/Redo click; those commands continue to execute through FreeCAD's native actions and should be manually checked in a real modeling session.
+The isolated Windows smoke confirmed the four controls are the same native `QAction` objects used by FreeCAD, checked their icons, accessible names and enabled states, and canceled the native Open and Save dialogs while confirming Frontdoor remained usable. It activated Quick Access Undo against a native sketch creation transaction and confirmed the sketch was removed; Quick Access Redo restored it. The probe document was then closed, a fresh document was opened, and the sketch-to-Pad task flow completed. The smoke passed at 1280 × 720 logical pixels at both scale factors, with sketch editing and a feature task still working.
 
 ### Acceptance checks for quick access
 
@@ -84,7 +84,7 @@ The isolated Windows smoke confirmed the four controls are the same native `QAct
 - There is exactly one New action in the Solid surface in each state: `New Design` in the task action area, with no Quick Access duplicate.
 - Open is enabled with or without a document. Save/Undo/Redo enabled state matches FreeCAD's corresponding native actions as the document and undo stack change.
 - Invoking Open/Save uses the native file dialog; canceling either dialog leaves the active document and Frontdoor state intact.
-- **Manual verification remaining:** Undo and Redo operate on the active document's native history and return the model to the expected prior/next state.
+- Undo and Redo operate on the active document's native history and return the model to the expected prior/next state.
 - The added controls fit on the heading row at 1280 × 720 and 100%/150% Qt scale factors without increasing the task surface's minimum height or covering task controls.
 - Sketch and feature tasks remain active and editable when quick-access commands are used or canceled.
 
