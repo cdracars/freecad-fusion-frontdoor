@@ -54,7 +54,7 @@ def _snapshot(label):
     visible_actions = [
         {"text": button.text(), "command": button.property("commandId"), "primary": button is dock.primary_button}
         for button in dock.findChildren(QtWidgets.QToolButton)
-        if button.isVisible()
+        if button.isVisible() and button.property("commandId")
     ]
     gui_document = Gui.activeDocument()
     in_edit = gui_document.getInEdit() if gui_document else None
@@ -82,11 +82,53 @@ def _snapshot(label):
             "object_name": toolbar.objectName(),
             "hidden": toolbar.isHidden(),
             "visible": toolbar.isVisible(),
-            "actions": [action.text() for action in toolbar.actions() if action.text()],
+            "actions": [
+                {
+                    "text": action.text(),
+                    "object_name": action.objectName(),
+                    "enabled": action.isEnabled(),
+                    "tooltip": action.toolTip(),
+                    "has_icon": not action.icon().isNull(),
+                }
+                for action in toolbar.actions()
+                if action.text()
+            ],
         }
         for toolbar in _toolbars()
     ]
     state["menu_bar_visible"] = _main.menuBar().isVisible()
+    available_commands = set(Gui.listCommands())
+    state["quick_access_command_registration"] = {
+        command: command in available_commands
+        for command in ("Std_Open", "Std_Save", "Std_Undo", "Std_Redo")
+    }
+    state["quick_access"] = []
+    for command, action_label in _task_surface_module._quick_access_commands:
+        action = dock.quick_access_actions.get(command)
+        if action is None:
+            continue
+        native_action = _task_surface_module._native_command_action(_main, command)
+        button = dock.quick_access.widgetForAction(action)
+        state["quick_access"].append(
+            {
+                "command": command,
+                "label": action_label,
+                "enabled": action.isEnabled(),
+                "has_icon": not action.icon().isNull(),
+                "same_native_action": action is native_action,
+                "accessible_name": button.accessibleName() if button else None,
+            }
+        )
+    if App.ActiveDocument:
+        state["document_undo_counts"] = {}
+        for name in ("UndoCount", "RedoCount"):
+            value = getattr(App.ActiveDocument, name, None)
+            if callable(value):
+                try:
+                    value = value()
+                except Exception:
+                    value = None
+            state["document_undo_counts"][name] = value
     screen = QtWidgets.QApplication.primaryScreen()
     state["window_size"] = [_main.width(), _main.height()]
     state["display_scale_factor"] = screen.devicePixelRatio() if screen else None
@@ -104,6 +146,39 @@ def _require(condition, message):
 
 def _tasks_dock_visible(state):
     return any(dock["visible"] for dock in state["native_task_docks"])
+
+
+def _trigger_and_cancel_dialog(command, timeout_ms=4000):
+    dock = _surface()
+    action = dock.quick_access_actions.get(command)
+    if action is None:
+        raise RuntimeError("Quick Access action %s is missing." % command)
+    result = {"seen": [], "timed_out": False}
+    deadline = QtCore.QTime.currentTime().addMSecs(timeout_ms)
+
+    def reject_dialog():
+        dialogs = [
+            widget
+            for widget in QtWidgets.QApplication.topLevelWidgets()
+            if widget.isVisible() and isinstance(widget, QtWidgets.QDialog)
+        ]
+        if dialogs:
+            result["seen"] = [
+                {"title": dialog.windowTitle(), "class": dialog.metaObject().className()}
+                for dialog in dialogs
+            ]
+            for dialog in dialogs:
+                dialog.reject()
+            return
+        if QtCore.QTime.currentTime() >= deadline:
+            result["timed_out"] = True
+            return
+        QtCore.QTimer.singleShot(100, reject_dialog)
+
+    QtCore.QTimer.singleShot(100, reject_dialog)
+    action.trigger()
+    QtWidgets.QApplication.processEvents()
+    return result
 
 
 def _write_report():
@@ -145,6 +220,42 @@ def _check_no_document():
             all(toolbar["hidden"] for toolbar in state["toolbars"]),
             "Native toolbars were visible in Frontdoor's idle state.",
         )
+        quick_commands = {item["command"] for item in state["quick_access"]}
+        _require(
+            quick_commands == {"Std_Open", "Std_Save", "Std_Undo", "Std_Redo"},
+            "Quick Access did not provide exactly Open, Save, Undo, and Redo.",
+        )
+        _require(
+            all(item["same_native_action"] for item in state["quick_access"]),
+            "A Quick Access control did not reuse its native FreeCAD action.",
+        )
+        _require(
+            all(item["has_icon"] and item["accessible_name"] == item["label"]
+                for item in state["quick_access"]),
+            "Quick Access is missing a native icon or accessible name.",
+        )
+        _require(
+            next((item["enabled"] for item in state["quick_access"] if item["command"] == "Std_Open"), False),
+            "Open was unavailable without an active document.",
+        )
+        _require(
+            all(
+                item["enabled"] == _task_surface_module._native_command_action(
+                    _main, item["command"]
+                ).isEnabled()
+                for item in state["quick_access"]
+            ),
+            "Quick Access enabled state diverged from FreeCAD with no active document.",
+        )
+        _require(
+            not any(item["command"] == "Std_New" for item in state["quick_access"]),
+            "Quick Access duplicated the New Design task action.",
+        )
+        open_result = _trigger_and_cancel_dialog("Std_Open")
+        _report["open_dialog_cancel"] = open_result
+        _require(bool(open_result["seen"]), "Open did not show a cancelable native dialog.")
+        _require(not open_result["timed_out"], "Open dialog did not appear before timeout.")
+        _require(App.ActiveDocument is None, "Canceling Open changed the no-document state.")
         original_visibility = dict(_task_surface_module._toolbar_visibility)
         if original_visibility:
             simulated_hidden = next(iter(original_visibility))
@@ -226,9 +337,23 @@ def _check_empty_document():
         )
         _require(not _tasks_dock_visible(state), "The native Tasks dock remained visible with no active task.")
         _require(
+            all(
+                item["enabled"] == _task_surface_module._native_command_action(
+                    _main, item["command"]
+                ).isEnabled()
+                for item in state["quick_access"]
+            ),
+            "Quick Access enabled state diverged from FreeCAD's native actions.",
+        )
+        _require(
             all(toolbar["hidden"] for toolbar in state["toolbars"]),
             "Native toolbars were visible in the empty-document state.",
         )
+        save_result = _trigger_and_cancel_dialog("Std_Save")
+        _report["save_dialog_cancel"] = save_result
+        _require(bool(save_result["seen"]), "Save did not show a cancelable native dialog.")
+        _require(not save_result["timed_out"], "Save dialog did not appear before timeout.")
+        _require(App.ActiveDocument is not None, "Canceling Save closed the active document.")
         _main.showNormal()
         _main.resize(1280, 720)
         QtWidgets.QApplication.processEvents()
@@ -256,6 +381,15 @@ def _check_sketch_edit():
         _require("closed profile" in state["hint"], "Sketch edit hint did not explain the next step.")
         _require(not state["modal_dialogs"], "A modal dialog appeared during default XY sketch creation.")
         _require(_tasks_dock_visible(state), "The native Tasks dock was hidden during sketch editing.")
+        _require(
+            all(
+                item["enabled"] == _task_surface_module._native_command_action(
+                    _main, item["command"]
+                ).isEnabled()
+                for item in state["quick_access"]
+            ),
+            "Quick Access enabled state diverged from FreeCAD during sketch editing.",
+        )
         sketcher_group_names = {
             "Sketcher",
             "Edit Mode",
@@ -275,7 +409,7 @@ def _check_sketch_edit():
             "Sketch edit did not show exactly the three focused Sketcher toolbars.",
         )
         actions_by_group = {
-            toolbar["title"]: set(toolbar["actions"])
+            toolbar["title"]: {action["text"] for action in toolbar["actions"]}
             for toolbar in state["toolbars"]
         }
         _require(

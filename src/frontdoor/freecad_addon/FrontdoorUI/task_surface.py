@@ -19,6 +19,12 @@ _commands = {
     "Fillet": "PartDesign_Fillet",
     "Chamfer": "PartDesign_Chamfer",
 }
+_quick_access_commands = (
+    ("Std_Open", "Open"),
+    ("Std_Save", "Save"),
+    ("Std_Undo", "Undo"),
+    ("Std_Redo", "Redo"),
+)
 
 
 class TaskSurface(QtWidgets.QDockWidget):
@@ -36,6 +42,16 @@ class TaskSurface(QtWidgets.QDockWidget):
         layout.setSpacing(8)
 
         heading = QtWidgets.QHBoxLayout()
+        self.quick_access = QtWidgets.QToolBar(root)
+        self.quick_access.setObjectName("FrontdoorQuickAccess")
+        self.quick_access.setMovable(False)
+        self.quick_access.setFloatable(False)
+        self.quick_access.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.quick_access.setIconSize(QtCore.QSize(18, 18))
+        self.quick_access_actions = {}
+        self._build_quick_access()
+        heading.addWidget(self.quick_access)
+        heading.addSpacing(10)
         brand = QtWidgets.QLabel("DESIGN")
         brand.setObjectName("workspaceLabel")
         heading.addWidget(brand)
@@ -77,6 +93,11 @@ class TaskSurface(QtWidgets.QDockWidget):
             "QLabel#workspaceLabel { color: #9ca9b7; font-size: 10px; font-weight: 700; letter-spacing: 1px; }"
             "QLabel#activeTaskLabel { color: #ffffff; font-size: 12px; font-weight: 700; }"
             "QLabel#commandHint { color: #b8c2cc; font-size: 10px; }"
+            "QToolBar#FrontdoorQuickAccess { background: transparent; border: 0; spacing: 2px; }"
+            "QToolBar#FrontdoorQuickAccess QToolButton { background: transparent; border: 0; border-radius: 3px; padding: 4px; min-width: 24px; min-height: 24px; color: #d9e1e8; }"
+            "QToolBar#FrontdoorQuickAccess QToolButton:hover:enabled { background: #3a424c; }"
+            "QToolBar#FrontdoorQuickAccess QToolButton:disabled { background: transparent; border: 0; }"
+            "QToolBar#FrontdoorQuickAccess::separator { background: #48515d; width: 1px; height: 18px; margin: 3px 5px; }"
             "QTabWidget::pane { border: 0; border-top: 1px solid #404852; }"
             "QTabBar::tab { background: #30363e; color: #bdc6cf; padding: 7px 16px; margin-right: 3px; border: 0; }"
             "QTabBar::tab:selected { background: #145fa9; color: #ffffff; font-weight: 600; }"
@@ -93,6 +114,26 @@ class TaskSurface(QtWidgets.QDockWidget):
         self.buttons = {}
         self._rendered_state = None
         self.refresh_state()
+
+    def _build_quick_access(self):
+        main_window = self.parentWidget()
+        for command, label in _quick_access_commands:
+            if command == "Std_Undo":
+                self.quick_access.addSeparator()
+            action = _native_command_action(main_window, command)
+            if action is None:
+                App.Console.PrintWarning(
+                    "[Frontdoor] Native %s action was not found; keep using its menu command.\n"
+                    % command
+                )
+                continue
+            self.quick_access.addAction(action)
+            button = self.quick_access.widgetForAction(action)
+            if button is not None:
+                button.setAccessibleName(label)
+                button.setToolTip(action.toolTip() or label)
+            self.quick_access_actions[command] = action
+        self.quick_access.setVisible(bool(self.quick_access_actions))
 
     def _group(self, title):
         group = QtWidgets.QGroupBox(title)
@@ -371,6 +412,18 @@ def _main_window_toolbars():
         for toolbar in main_window.findChildren(QtWidgets.QToolBar)
         if toolbar.parentWidget() is main_window
     ]
+
+
+def _native_command_action(main_window, command):
+    if main_window is None:
+        return None
+    for toolbar in main_window.findChildren(QtWidgets.QToolBar):
+        if toolbar.objectName() == "FrontdoorQuickAccess":
+            continue
+        for action in toolbar.actions():
+            if action.objectName() == command or command in action.toolTip():
+                return action
+    return None
 
 
 def _capture_toolbar_visibility():

@@ -65,6 +65,29 @@ On the isolated Windows FreeCAD 1.1.4 profile, the task smoke passed at Qt scale
 
 On isolated FreeCAD 1.1.4, the smoke passed at Qt scale factors 1.0 and 1.5 in a 1280 × 720 logical-pixel window. During sketch editing, the only visible Sketcher groups were `Edit Mode`, `Geometries`, and `Constraints`; action assertions confirmed Line, Rectangle, Dimension, Horizontal/Vertical Constraint, and Leave Sketch are present. The Sketcher management, transform, B-Spline, and Visual Helpers groups were hidden. The native Tasks panel remained visible. The probe then entered a native Pad edit task and confirmed Sketcher-only groups stayed hidden; canceling Pad returned to the idle state. All smoke assertions passed, the test document closed, and the managed FreeCAD process exited with status 0 at both scale factors. The probe adds geometry through FreeCAD's API, so mouse-drawn sketching and Fusion-user acceptance remain unverified.
 
+## Next GUI iteration: keep common file and edit actions close
+
+**Status: implemented; isolated Windows smoke verified on FreeCAD 1.1.4 at 100% and 150% Qt scaling.** Hiding FreeCAD's native toolbar rows declutters the idle workspace, but it also removes the one-click New/Open/Save/Undo/Redo controls users commonly expect. `New Design` already provides the New action in every Solid state, so do not duplicate it. The Frontdoor workspace heading now has a compact quick-access group for **Open**, **Save**, **Undo**, and **Redo**.
+
+- Reuse FreeCAD's native command actions so shortcuts, enabled state, file dialogs, undo history, and save behavior remain native. Do not change or duplicate their command implementations.
+- Use the existing native icons and tooltips when available. Give each control an accessible name. If a native action cannot be resolved safely, keep the corresponding menu command available and record the limitation rather than creating an unverified substitute.
+- Keep the group compact and on the existing workspace-heading row; it must not increase the task surface's vertical height. Separate file actions from undo/redo with a subtle divider.
+- **Open** remains available without a document. **Save**, **Undo**, and **Redo** follow FreeCAD's native enabled state and are unavailable when their commands are unavailable.
+- Do not add a second New control: the `New Design` task action remains the only New entry point in the Solid workspace.
+- Keep the Frontdoor action hierarchy and native toolbar focus behavior unchanged. Quick access remains visible during sketch editing without obscuring native task controls.
+
+The isolated Windows smoke confirmed the four controls are the same native `QAction` objects used by FreeCAD, checked their icons, accessible names and enabled states, and canceled the native Open and Save dialogs while confirming Frontdoor remained usable. The smoke passed at 1280 × 720 logical pixels at both scale factors, with sketch editing and a feature task still working. It does not simulate a model-history Undo/Redo click; those commands continue to execute through FreeCAD's native actions and should be manually checked in a real modeling session.
+
+### Acceptance checks for quick access
+
+- The heading row shows Open, Save, Undo, and Redo with their native icons/tooltips; all four use the native FreeCAD command actions.
+- There is exactly one New action in the Solid surface in each state: `New Design` in the task action area, with no Quick Access duplicate.
+- Open is enabled with or without a document. Save/Undo/Redo enabled state matches FreeCAD's corresponding native actions as the document and undo stack change.
+- Invoking Open/Save uses the native file dialog; canceling either dialog leaves the active document and Frontdoor state intact.
+- **Manual verification remaining:** Undo and Redo operate on the active document's native history and return the model to the expected prior/next state.
+- The added controls fit on the heading row at 1280 × 720 and 100%/150% Qt scale factors without increasing the task surface's minimum height or covering task controls.
+- Sketch and feature tasks remain active and editable when quick-access commands are used or canceled.
+
 ## Next GUI iteration: make the first action obvious
 
 **Status: implemented; Windows smoke verified with isolated FreeCAD 1.1.4.** This iteration is limited to the first `Design > Solid` launch and the transition into the first sketch. It does not redesign the complete ribbon, other task tabs, or the launcher. Linux and other FreeCAD versions remain unverified for this iteration.
