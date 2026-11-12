@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
@@ -21,6 +24,30 @@ ALLOWED_GITHUB_HOSTS = {
     "release-assets.githubusercontent.com",
     "objects.githubusercontent.com",
 }
+SERVER_AUTH_OIDS = {"1.3.6.1.5.5.7.3.1", "2.5.29.37.0"}
+
+
+@lru_cache(maxsize=1)
+def _github_ssl_context() -> ssl.SSLContext:
+    """Use the platform's trusted server CAs, including Windows-managed roots."""
+    context = ssl.create_default_context()
+    if os.name != "nt" or not hasattr(ssl, "enum_certificates"):
+        return context
+
+    for store in ("ROOT", "CA"):
+        try:
+            certificates = ssl.enum_certificates(store)
+        except OSError:
+            continue
+        for certificate, encoding, trust in certificates:
+            if encoding != "x509_asn":
+                continue
+            trusted_for_server = trust is True or (
+                isinstance(trust, set) and bool(trust & SERVER_AUTH_OIDS)
+            )
+            if trusted_for_server:
+                context.load_verify_locations(cadata=ssl.DER_cert_to_PEM_cert(certificate))
+    return context
 
 
 def open_github_url(url: str):
@@ -28,7 +55,7 @@ def open_github_url(url: str):
         url,
         headers={"User-Agent": "FreeCAD-Fusion-Frontdoor/0.1", "Accept": "application/vnd.github+json"},
     )
-    response = urllib.request.urlopen(request, timeout=30)
+    response = urllib.request.urlopen(request, timeout=30, context=_github_ssl_context())
     final = urllib.parse.urlsplit(response.geturl())
     if final.scheme != "https" or final.hostname not in ALLOWED_GITHUB_HOSTS:
         response.close()
