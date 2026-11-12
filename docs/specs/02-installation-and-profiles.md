@@ -16,12 +16,12 @@ The user confirms the setup before any installer is executed. The current deskto
 1. Read the latest stable x64 Windows installer metadata from the official FreeCAD GitHub releases API. Ignore draft, prerelease, and development releases.
 2. Require HTTPS and expected GitHub release hosts. Require an asset size and SHA-256 digest from release metadata.
 3. Download to Frontdoor's data area using a temporary file. Verify size and SHA-256 before use.
-4. Verify the Windows Authenticode signature and expected FreeCAD Project Association publisher before execution.
+4. Verify the Windows Authenticode signature and expected FreeCAD Project Association publisher before execution. Match the publisher identity case-insensitively and allow the certificate's legal subject to include the leading article “The”; require the signature status to be `Valid`.
 5. Install silently into the app's per-user managed program directory. Do not elevate, change `PATH`, or use `/NCRC`.
 6. Confirm the expected `FreeCAD.exe` exists before writing the managed-install record or labeling setup ready.
 7. On retry, reuse/repair a correctly owned app-managed directory. Refuse to overwrite an unowned populated directory.
 
-The installation code implements the digest, publisher, path, and ownership checks. Windows execution has not been validated in this development environment.
+The Windows 1.1.4 installer download matched the release SHA-256 and Windows reported its Authenticode status as `Valid`, with signer subject `CN=The FreeCAD project association AISBL, O=The FreeCAD project association AISBL, L=Brussels, C=BE`. The initial Frontdoor publisher comparison rejected this valid subject because it was case-sensitive and omitted “The”; the managed installation did not proceed. Fix and rerun that check before treating Windows install as validated.
 
 ## Profile contract
 

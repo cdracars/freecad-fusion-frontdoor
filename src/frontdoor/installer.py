@@ -12,6 +12,11 @@ from .paths import executable_candidates
 from .release import download_verified_installer
 
 Progress = Callable[[str, int], None]
+EXPECTED_PUBLISHER = "freecad project association aisbl"
+
+
+def _is_expected_publisher(subject: str) -> bool:
+    return EXPECTED_PUBLISHER in subject.casefold()
 
 
 def install_windows_freecad(asset: ReleaseAsset, target: Path, progress: Progress) -> Path:
@@ -62,5 +67,5 @@ def _verify_authenticode(installer: Path) -> None:
     subject = result.get("Subject", "")
     if completed.returncode != 0 or result.get("Status") != "Valid":
         raise FrontdoorError(f"Windows reports an invalid or missing installer signature ({result.get('Status', 'unknown')}).")
-    if "FreeCAD Project Association AISBL" not in subject:
+    if not _is_expected_publisher(subject):
         raise FrontdoorError(f"The signed installer publisher was not the expected FreeCAD project ({subject or 'unknown'}).")
