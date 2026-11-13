@@ -17,7 +17,7 @@ def append_startup_measurement(
     ready: dict[str, Any],
 ) -> None:
     """Append one workbench-ready sample to an explicitly selected local log."""
-    duration = ready.get("startup_duration_ms")
+    duration = ready.get("launch_to_surface_show_ms")
     try:
         valid_duration = (
             not isinstance(duration, bool)
@@ -35,7 +35,7 @@ def append_startup_measurement(
     path = Path(log_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
-        "metric": "frontdoor_workbench_ready",
+        "metric": "frontdoor_task_surface_show_call",
         "profile": profile,
         "freecad_version": ready.get("freecad_version"),
         "freecad_pid": ready.get("pid"),

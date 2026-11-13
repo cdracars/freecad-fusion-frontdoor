@@ -60,13 +60,13 @@ class StartupStatusTests(unittest.TestCase):
                 token,
                 process_id=321,
                 freecad_version="1.1.4",
-                startup_started_ns=time.perf_counter_ns() - 5_000_000,
+                launch_requested_ns=time.perf_counter_ns() - 5_000_000,
             )
 
             data = read_launch_ready_marker(profile, token)
             self.assertIsNotNone(data)
-            self.assertGreaterEqual(data["startup_duration_ms"], 5)
-            self.assertLess(data["startup_duration_ms"], 1000)
+            self.assertGreaterEqual(data["launch_to_surface_show_ms"], 5)
+            self.assertLess(data["launch_to_surface_show_ms"], 1000)
 
     def test_invalid_measured_duration_cannot_confirm_startup(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -76,7 +76,7 @@ class StartupStatusTests(unittest.TestCase):
             marker.parent.mkdir(parents=True)
             marker.write_text(
                 '{"token":"%s","state":"ready","pid":321,'
-                '"freecad_version":"1.1.4","startup_duration_ms":NaN}' % token,
+                '"freecad_version":"1.1.4","launch_to_surface_show_ms":NaN}' % token,
                 encoding="utf-8",
             )
 
@@ -90,7 +90,7 @@ class StartupStatusTests(unittest.TestCase):
             marker.parent.mkdir(parents=True)
             marker.write_text(
                 '{"token":"%s","state":"ready","pid":321,'
-                '"freecad_version":"1.1.4","startup_duration_ms":%s}'
+                '"freecad_version":"1.1.4","launch_to_surface_show_ms":%s}'
                 % (token, "9" * 400),
                 encoding="utf-8",
             )

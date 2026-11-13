@@ -16,14 +16,14 @@ class StartupMeasurementTests(unittest.TestCase):
                 log_path,
                 profile="fusion",
                 ready={
-                    "startup_duration_ms": 2840.1256,
+                    "launch_to_surface_show_ms": 2840.1256,
                     "freecad_version": "1.1.4",
                     "pid": 1234,
                 },
             )
 
             record = json.loads(log_path.read_text(encoding="utf-8"))
-            self.assertEqual(record["metric"], "frontdoor_workbench_ready")
+            self.assertEqual(record["metric"], "frontdoor_task_surface_show_call")
             self.assertEqual(record["profile"], "fusion")
             self.assertEqual(record["freecad_version"], "1.1.4")
             self.assertEqual(record["freecad_pid"], 1234)
@@ -43,13 +43,13 @@ class StartupMeasurementTests(unittest.TestCase):
                 append_startup_measurement(
                     log_path,
                     profile="full",
-                    ready={"startup_duration_ms": 10, "freecad_version": "1.1.4", "pid": 1234},
+                    ready={"launch_to_surface_show_ms": 10, "freecad_version": "1.1.4", "pid": 1234},
                 )
             with self.assertRaises(ValueError):
                 append_startup_measurement(
                     log_path,
                     profile="fusion",
-                    ready={"startup_duration_ms": float("inf")},
+                    ready={"launch_to_surface_show_ms": float("inf")},
                 )
             self.assertFalse(log_path.exists())
 

@@ -27,7 +27,7 @@ def write_launch_ready_marker(
     *,
     process_id: int,
     freecad_version: str,
-    startup_started_ns: int | None = None,
+    launch_requested_ns: int | None = None,
 ) -> Path:
     marker = launch_ready_marker(profile, token)
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -37,17 +37,17 @@ def write_launch_ready_marker(
         "pid": process_id,
         "freecad_version": freecad_version,
     }
-    if startup_started_ns is not None:
+    if launch_requested_ns is not None:
         if (
-            isinstance(startup_started_ns, bool)
-            or not isinstance(startup_started_ns, int)
-            or startup_started_ns <= 0
+            isinstance(launch_requested_ns, bool)
+            or not isinstance(launch_requested_ns, int)
+            or launch_requested_ns <= 0
         ):
-            raise ValueError("Frontdoor startup timestamp is invalid.")
-        duration_ns = time.perf_counter_ns() - startup_started_ns
+            raise ValueError("Frontdoor launch-request timestamp is invalid.")
+        duration_ns = time.perf_counter_ns() - launch_requested_ns
         if duration_ns < 0:
-            raise ValueError("Frontdoor startup timestamp is invalid.")
-        data["startup_duration_ms"] = round(duration_ns / 1_000_000, 3)
+            raise ValueError("Frontdoor launch-request timestamp is invalid.")
+        data["launch_to_surface_show_ms"] = round(duration_ns / 1_000_000, 3)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f"ready-{token}.", suffix=".tmp", dir=marker.parent
     )
@@ -78,7 +78,7 @@ def read_launch_ready_marker(profile: Path, token: str) -> dict[str, Any] | None
         or not isinstance(data.get("freecad_version"), str)
     ):
         return None
-    duration = data.get("startup_duration_ms")
+    duration = data.get("launch_to_surface_show_ms")
     if duration is not None:
         try:
             valid_duration = (

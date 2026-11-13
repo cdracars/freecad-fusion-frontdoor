@@ -1,0 +1,216 @@
+"""Measure repeatable FreeCAD core-operation model-update timings.
+
+Run from the existing Windows FreeCAD profile using Macro > Macros > Execute.
+Set FRONTDOOR_CORE_PERF_LOG to a writable JSONL path first. This records kernel
+model-update/recompute timings; it does not measure mouse or UI responsiveness.
+Each run uses a disposable in-memory document and closes only that document.
+"""
+
+import json
+import math
+import os
+import platform
+import time
+import traceback
+from datetime import datetime, timezone
+
+import FreeCAD as App
+import Part
+
+
+_log_path = os.environ.get("FRONTDOOR_CORE_PERF_LOG")
+_document = None
+_record = {
+    "metric": "frontdoor_core_operation_benchmark",
+    "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+    "freecad_version": ".".join(str(part) for part in App.Version()[:3]),
+    "platform": platform.platform(),
+    "architecture": platform.machine(),
+    "processor": platform.processor(),
+    "operations": {},
+    "failures": [],
+}
+
+
+def _timed_recompute(document):
+    started = time.perf_counter_ns()
+    document.recompute()
+    return round((time.perf_counter_ns() - started) / 1_000_000, 3)
+
+
+def _rectangle(sketch, left, bottom, right, top):
+    points = ((left, bottom), (right, bottom), (right, top), (left, top))
+    _polygon(sketch, [App.Vector(x, y, 0) for x, y in points])
+
+
+def _polygon(sketch, points):
+    for index, start in enumerate(points):
+        end = points[(index + 1) % len(points)]
+        sketch.addGeometry(
+            Part.LineSegment(start, end),
+            False,
+        )
+
+
+def _shape_result(shape):
+    volume = float(shape.Volume)
+    if not math.isfinite(volume):
+        raise RuntimeError("FreeCAD returned a non-finite shape volume.")
+    return {
+        "valid": bool(shape.isValid()),
+        "solid_count": len(shape.Solids),
+        "volume_mm3": round(volume, 6),
+    }
+
+
+def _timed_feature(document, name, create_and_configure):
+    """Measure model update (feature setup + recompute) and recompute alone."""
+    overall_started = time.perf_counter_ns()
+    feature = create_and_configure()
+    recompute_ms = _timed_recompute(document)
+    model_update_ms = round((time.perf_counter_ns() - overall_started) / 1_000_000, 3)
+    result = {
+        "recompute_ms": recompute_ms,
+        "model_update_ms": model_update_ms,
+        "feature": feature.Name,
+    }
+    result.update(_shape_result(feature.Shape))
+    _record["operations"][name] = result
+    if not result["valid"] or result["solid_count"] != 1:
+        raise RuntimeError("%s did not produce exactly one valid solid: %r" % (name, result))
+    return feature
+
+
+def _run():
+    global _document
+    if not _log_path:
+        raise RuntimeError(
+            "Set FRONTDOOR_CORE_PERF_LOG to a writable JSONL path before running this macro."
+        )
+
+    _document = App.newDocument("FrontdoorCorePerformance")
+    body = _document.addObject("PartDesign::Body", "Body")
+    sketch = body.newObject("Sketcher::SketchObject", "BaseProfile")
+    _rectangle(sketch, 0, 0, 20, 20)
+    _record["operations"]["sketch_recompute_ms"] = _timed_recompute(_document)
+
+    pad = _timed_feature(
+        _document,
+        "pad",
+        lambda: _create_pad(body, sketch),
+    )
+
+    pocket_sketch = body.newObject("Sketcher::SketchObject", "PocketProfile")
+    top_face_index = max(
+        (index for index, face in enumerate(pad.Shape.Faces, 1)
+         if abs(face.BoundBox.ZMin - 10.0) < 1e-6
+         and abs(face.BoundBox.ZMax - 10.0) < 1e-6),
+        key=lambda index: pad.Shape.Faces[index - 1].Area,
+    )
+    pocket_sketch.AttachmentSupport = (pad, ["Face%d" % top_face_index])
+    pocket_sketch.MapMode = "FlatFace"
+    _document.recompute()
+    inverse = pocket_sketch.Placement.inverse()
+    global_points = ((5, 5, 10), (15, 5, 10), (15, 15, 10), (5, 15, 10))
+    local_points = [
+        inverse.multVec(App.Vector(x, y, z)) for x, y, z in global_points
+    ]
+    _polygon(
+        pocket_sketch,
+        [App.Vector(point.x, point.y, 0) for point in local_points],
+    )
+    _record["operations"]["pocket_sketch_recompute_ms"] = _timed_recompute(_document)
+    pocket = _timed_feature(
+        _document,
+        "pocket",
+        lambda: _create_pocket(body, pocket_sketch),
+    )
+
+    for operation in ("fillet", "chamfer"):
+        branch = _document.copyObject(body, True)
+        _document.recompute()
+        edge_index = max(
+            range(1, len(branch.Tip.Shape.Edges) + 1),
+            key=lambda index: branch.Tip.Shape.Edges[index - 1].Length,
+        )
+        dressup = _timed_feature(
+            _document,
+            operation,
+            lambda branch=branch, edge_index=edge_index, operation=operation: _create_dressup(
+                branch, edge_index, operation
+            ),
+        )
+        property_name = "Radius" if operation == "fillet" else "Size"
+        parameter_mm = float(getattr(dressup, property_name).Value)
+        _record["operations"][operation]["parameter_mm"] = parameter_mm
+        if not math.isfinite(parameter_mm) or abs(parameter_mm - 1.0) > 1e-9:
+            raise RuntimeError(
+                "%s did not retain its expected 1 mm parameter: %r"
+                % (operation, parameter_mm)
+            )
+
+    _record["acceptance"] = {
+        "pad_volume_mm3": _record["operations"]["pad"]["volume_mm3"],
+        "pocket_volume_mm3": _record["operations"]["pocket"]["volume_mm3"],
+        "expected_pad_volume_mm3": 4000,
+        "expected_pocket_volume_mm3": 3500,
+        "tolerance_mm3": 0.1,
+    }
+    if not math.isfinite(_record["acceptance"]["pad_volume_mm3"]) or abs(
+        _record["acceptance"]["pad_volume_mm3"] - 4000
+    ) > 0.1:
+        raise RuntimeError("Pad volume fell outside the expected benchmark tolerance.")
+    if not math.isfinite(_record["acceptance"]["pocket_volume_mm3"]) or abs(
+        _record["acceptance"]["pocket_volume_mm3"] - 3500
+    ) > 0.1:
+        raise RuntimeError("Pocket volume fell outside the expected benchmark tolerance.")
+    _record["completed"] = True
+
+
+def _create_pad(body, sketch):
+    pad = body.newObject("PartDesign::Pad", "Pad")
+    pad.Profile = sketch
+    pad.Length = 10
+    return pad
+
+
+def _create_pocket(body, sketch):
+    pocket = body.newObject("PartDesign::Pocket", "Pocket")
+    pocket.Profile = sketch
+    pocket.Length = 5
+    return pocket
+
+
+def _create_dressup(body, edge_index, operation):
+    base = body.Tip
+    if operation == "fillet":
+        feature = body.newObject("PartDesign::Fillet", "Fillet")
+        feature.Base = (base, ["Edge%d" % edge_index])
+        feature.Radius = 1
+    else:
+        feature = body.newObject("PartDesign::Chamfer", "Chamfer")
+        feature.Base = (base, ["Edge%d" % edge_index])
+        feature.Size = 1
+    return feature
+
+
+try:
+    _run()
+except Exception:
+    _record["failures"].append(traceback.format_exc())
+finally:
+    if _document is not None:
+        try:
+            App.closeDocument(_document.Name)
+        except Exception:
+            _record["failures"].append("Could not close benchmark document:\n" + traceback.format_exc())
+    if _log_path:
+        try:
+            parent = os.path.dirname(os.path.abspath(_log_path))
+            if not os.path.isdir(parent):
+                os.makedirs(parent)
+            with open(_log_path, "a", encoding="utf-8") as _stream:
+                _stream.write(json.dumps(_record, separators=(",", ":")) + "\n")
+        except Exception:
+            print("Could not write Frontdoor benchmark log:\n" + traceback.format_exc())
+    print("Frontdoor core performance result:\n" + json.dumps(_record, indent=2))
