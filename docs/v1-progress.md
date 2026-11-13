@@ -47,15 +47,15 @@ This record tracks the Windows product path, not only the Frontdoor UI. “Verif
 
 ## Windows validation access blocker
 
-The current non-elevated call to the existing Herdr bridge, `hc ls --all`, fails with:
+The previous non-elevated call to the existing Herdr bridge, `hc ls --all`, failed with:
 
 ```text
 cannot open core lock: Read-only file system (os error 30)
 ```
 
-This was the earlier `hc` inventory failure. No elevation request, bridge restart, or new Windows instance was attempted. The current `herdr-app ls` read-only inventory works, but there is no Frontdoor project pane among the Windows workspaces. The unrelated Windows workspaces were left untouched. Hands-on validation needs the existing Frontdoor Windows workspace to be made available through Herdr.
+This was the earlier `hc` inventory failure. No elevation request, bridge restart, or new Windows instance was attempted. An earlier `herdr-app ls` inventory showed only unrelated Windows workspaces, which were left untouched. Hands-on validation needs the existing Frontdoor Windows workspace to be made available through Herdr.
 
-**Rechecked 2026-11-13:** the current workspace is the Linux `/home/cfsdev/Documents/ChatGPT/Freecad` checkout, and its local process inventory contains no Herdr or FreeCAD process. The read-only `herdr-app ls` inventory is accessible, but it lists no Frontdoor/FreeCAD Windows workspace; the listed Windows workspaces belong to unrelated tasks and were left untouched. No project Windows pane was opened or created. GitHub Actions is reachable and the Python 3.12/3.13 source-check workflow passed, but it does not provide the attached Windows desktop or FreeCAD GUI validation.
+**Rechecked 2026-11-13:** the current workspace is the Linux `/home/cfsdev/Documents/ChatGPT/Freecad` checkout. The latest `herdr-app ls` call returned `no Herdr window at /home/cfsdev/.config/herdr-app/herdr-app.sock: Operation not permitted`; process-name checks found no `herdr-app` or `herdr` process, although the socket path exists. The previous `hc ls --all` attempt failed with a read-only core-lock error. No elevation request, restart, or new Windows instance was attempted. No project Windows pane is available in this session. The intervention needed is to make the existing Frontdoor Windows Herdr pane/session available to this Codex session; do not create a replacement instance. GitHub Actions' older Python source-check run does not provide the attached Windows desktop or FreeCAD GUI validation.
 
 ## Next actions
 
