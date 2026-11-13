@@ -11,7 +11,7 @@ This is an independent community tool. It is not affiliated with Autodesk or the
 ## MVP user and platform
 
 - User: a Windows 10/11 x64 Fusion user who wants to try FreeCAD without first learning how to assemble add-ons and preferences.
-- App: Python 3.12+ with PySide6; package as a signed Windows desktop app after the workflow has passed Windows validation.
+- App: Python 3.12+ with PySide6; freeze with Qt for Python's `pyside6-deploy` in explicit standalone mode. Deliver an unsigned portable ZIP for review; package as a signed Windows desktop app only after the workflow has passed Windows validation.
 - Setup core: a Python module plus `frontdoor-setup` CLI with no Qt dependency. It can configure an existing FreeCAD executable on Windows or Linux using an isolated profile, independently of the Windows installer flow.
 - FreeCAD: latest stable x64 Windows installer published by the official `FreeCAD/FreeCAD` GitHub releases. Exclude prereleases and development builds.
 - Fusion add-on: `arxdsilva/freecad-fusion`, pinned to commit `332ba07bdcaca194e5a3010d1fc0a365eeaefcf1` (package version 0.1.1 at that commit). Do not silently follow `main`.

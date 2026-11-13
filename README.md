@@ -70,3 +70,13 @@ freecad-frontdoor
 ```
 
 Setup is intentionally disabled on non-Windows hosts. Windows installation and profile isolation still need a real Windows run before this should be used as an installer.
+
+### Build an unsigned Windows preview
+
+The first packaged build is a portable ZIP, not an installer. Build it on Windows x64 with Python 3.13.17 x64 and Visual Studio Build Tools 2022 or later, including the x64 MSVC tools (`dumpbin`). From a PowerShell prompt at the repository root, run:
+
+```powershell
+.\scripts\build_windows.ps1
+```
+
+The script creates its own `.venv-windows-build`, installs the exact versions in `requirements/windows-build.txt`, and writes the ZIP and SHA-256 sidecar under `dist/`. The candidate is unsigned. It has not yet been built or tested on Windows; do not distribute it as a release. Follow `docs/portable-windows-preview.txt` for the required clean-machine smoke checks. The generated `pysidedeploy.spec` is local build state and is intentionally not included in the candidate.

@@ -1,0 +1,5 @@
+# Windows x64 package toolchain. Update as a unit and validate on the Windows host.
+PySide6==6.12.0
+Nuitka==4.3.4
+ordered-set==4.1.0
+zstandard==0.25.0

@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 build/
 dist/
+/build/
 *.egg-info/
 .pytest_cache/
 .frontdoor-test/
+/.venv-windows-build/
+/pysidedeploy.spec
+/src/frontdoor/freecad_addon/frontdoor_ui_payload.zip

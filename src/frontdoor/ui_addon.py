@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 import tempfile
 from importlib.resources import as_file, files
 from pathlib import Path
+from pathlib import PurePosixPath
 import xml.etree.ElementTree as ET
+import zipfile
 
 from .errors import FrontdoorError
 from .paths import ensure_profile
@@ -74,8 +77,16 @@ def install_frontdoor_ui(profile: Path | None = None) -> Path:
 
     try:
         package = files("frontdoor.freecad_addon").joinpath(UI_ADDON_FOLDER)
-        with as_file(package) as source:
-            shutil.copytree(source, replacement)
+        required = ("InitGui.py", "task_surface.py", "package.xml")
+        if package.is_dir() and all(package.joinpath(name).is_file() for name in required):
+            with as_file(package) as source:
+                shutil.copytree(source, replacement)
+        else:
+            payload = files("frontdoor.freecad_addon").joinpath("frontdoor_ui_payload.zip")
+            if not payload.is_file():
+                raise FrontdoorError("The packaged Frontdoor workbench resource is missing.")
+            with as_file(payload) as source:
+                _extract_frontdoor_ui_payload(Path(source), replacement)
         (replacement / UI_MARKER).write_text(
             json.dumps({"product": "FreeCAD Fusion Frontdoor", "version": UI_VERSION}, indent=2),
             encoding="utf-8",
@@ -91,9 +102,43 @@ def install_frontdoor_ui(profile: Path | None = None) -> Path:
         if backup.exists():
             shutil.rmtree(backup)
         return destination
-    except OSError as exc:
+    except FrontdoorError:
+        shutil.rmtree(replacement, ignore_errors=True)
+        raise
+    except (OSError, zipfile.BadZipFile, ValueError) as exc:
         shutil.rmtree(replacement, ignore_errors=True)
         raise FrontdoorError(f"Could not stage the Frontdoor workbench in {destination}: {exc}") from exc
+
+
+def _extract_frontdoor_ui_payload(archive_path: Path, destination: Path) -> None:
+    required = {"initgui.py", "task_surface.py", "package.xml"}
+    seen: set[str] = set()
+    total_size = 0
+    destination.mkdir(parents=True, exist_ok=False)
+    with zipfile.ZipFile(archive_path) as archive:
+        for entry in archive.infolist():
+            relative = PurePosixPath(entry.filename)
+            if (
+                relative.is_absolute()
+                or len(relative.parts) != 1
+                or relative.name in {"", ".", ".."}
+                or entry.is_dir()
+                or entry.flag_bits & 1
+                or stat.S_ISLNK(entry.external_attr >> 16)
+            ):
+                raise FrontdoorError("The packaged Frontdoor workbench archive contains an unsafe entry.")
+            name_key = relative.name.casefold()
+            if name_key in seen:
+                raise FrontdoorError("The packaged Frontdoor workbench archive contains duplicate filenames.")
+            seen.add(name_key)
+            total_size += entry.file_size
+            if entry.file_size > 25 * 1024 * 1024 or total_size > 50 * 1024 * 1024:
+                raise FrontdoorError("The packaged Frontdoor workbench archive is larger than expected.")
+            with archive.open(entry) as source, (destination / relative.name).open("wb") as target:
+                shutil.copyfileobj(source, target)
+
+    if not required.issubset(seen):
+        raise FrontdoorError("The packaged Frontdoor workbench archive is missing required files.")
 
 
 def _ensure_group(parent: ET.Element, names: tuple[str, ...]) -> ET.Element:

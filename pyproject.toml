@@ -22,3 +22,10 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "frontdoor.freecad_addon.FrontdoorUI" = ["package.xml", "README.md"]
+
+[tool.pyside6.deploy]
+title = "FreeCAD Fusion Frontdoor"
+input_file = "scripts/frontdoor_entry.py"
+exec_directory = "build/windows"
+mode = "standalone"
+extra_args = "--windows-console-mode=disable --include-data-files=src/frontdoor/freecad_addon/frontdoor_ui_payload.zip=frontdoor/freecad_addon/frontdoor_ui_payload.zip"

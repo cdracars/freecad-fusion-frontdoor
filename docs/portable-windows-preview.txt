@@ -1,0 +1,11 @@
+FreeCAD Fusion Frontdoor — Windows review candidate
+
+Extract this ZIP and run frontdoor_entry.exe from the included
+standalone folder. The app will create its own FreeCAD copy and isolated
+profiles under your Windows user data. Review the displayed FreeCAD version,
+publisher, and paths before setup.
+
+This is an unsigned, pre-release review build. Its SHA-256 is supplied beside
+the ZIP. It is not a supported public release. Keep your existing FreeCAD
+shortcut and profile separate; Frontdoor provides a separate Full FreeCAD
+profile as its recovery route.
