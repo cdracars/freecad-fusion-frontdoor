@@ -99,6 +99,7 @@ The isolated Windows smoke confirmed the four controls are the same native `QAct
 - Keep the viewport as the main area. Pair the primary action with one short, plain-language hint that a new design opens here and the next step is creating a sketch. Do not cover the viewport with a blocking dialog or long onboarding text.
 - Keep FreeCAD's native `Tasks` dock hidden when it has no active task content; show it while a native sketch/feature task is active and hide it again when that task closes. An empty dock must not consume canvas space or suggest an unfinished setup step.
 - In this no-document state, hide model commands that cannot yet be used (`Create Sketch`, `Pad`, `Pocket`, `Fillet`, `Chamfer`). Do not present a row of disabled controls as if they were equally relevant choices.
+- Default `BaseApp/Preferences/Mod/Start/ShowOnStartup` to false in the Fusion profile so FreeCAD does not replace the configured Frontdoor workspace with its Start page. FreeCAD 1.1.4 checks this value before invoking `Start_Start` ([upstream source](https://github.com/FreeCAD/FreeCAD/blob/1.1.4/src/Mod/Start/Gui/AppStartGui.cpp#L77-L86)). Preserve a valid existing value and do not write this preference to the Full profile.
 - Do not show FreeCAD's first-run Basic Setup/Welcome page as the main content in the Fusion profile after Frontdoor has configured the requested defaults. Preserve the native Welcome experience in the clean Full FreeCAD profile. If FreeCAD cannot suppress its page safely, keep the Frontdoor task strip and its primary action visible and record the limitation rather than blocking entry to the workspace.
 
 ### Progressive next action
@@ -113,7 +114,7 @@ Use one stable primary-action location so the user can follow the sequence witho
 
 ### Acceptance checks for this iteration
 
-- On a fresh Fusion-profile launch with no document, `Design > Solid` is active and the primary `New Design` action is visible without scrolling or opening a menu. No theme/navigation chooser or FreeCAD Basic Setup/Welcome page replaces the Frontdoor workspace.
+- On a fresh Fusion-profile launch with no document, `Design > Solid` is active and the primary `New Design` action is visible without scrolling or opening a menu. The configured Start-page preference prevents the FreeCAD Start page from replacing the Frontdoor workspace; no theme/navigation chooser or FreeCAD Basic Setup/Welcome page blocks entry.
 - The native `Tasks` dock is hidden when empty, appears for the native sketch edit task, and is hidden again when that task closes.
 - The no-document state does not show disabled sketch/solid commands as prominent choices. One hint explains what `New Design` does and what follows.
 - One activation of `New Design` opens exactly one document and changes the primary action to `Create Sketch` in the same location.
@@ -157,7 +158,7 @@ Show a compact `Fusion navigation` status in the existing Frontdoor task surface
 - Default directly to `Design > Solid` after the profile is ready.
 - Preconfigure theme, navigation, initial workbench, and initial window state so the user does not need to pick among FreeCAD settings before modeling.
 - Do not block the viewport with a long add-on data-generation prompt. If first-use data must be created, provision it before launch when safe or present progress with a clear status.
-- FreeCAD's current Welcome panel remains visible in Linux 1.1.1 testing. Decide whether to dismiss it, replace it, or retain it with Frontdoor defaults prefilled; do not imply the choice is settled.
+- A Linux FreeCAD 1.1.1 test previously showed the native Welcome/Start content. Frontdoor now configures the Fusion profile's Start-page preference to hidden when no user choice exists and preserves any existing choice. Verify that behavior on a fresh Windows profile and supported Linux build; until then, treat the source change as implemented but runtime confirmation as open.
 
 ## Later workspaces
 

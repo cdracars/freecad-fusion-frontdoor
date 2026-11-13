@@ -47,9 +47,10 @@ The project code is MIT-licensed. The first review candidate is an unsigned port
 ## First-launch defaults
 
 - Fusion profile: select FreeCAD Dark only when no theme choice exists; select Frontdoor as the initial workbench only when no workbench preference exists; maximize the initial window only when no saved window preference exists.
+- Fusion profile: default FreeCAD's Start workbench page to hidden using `BaseApp/Preferences/Mod/Start/ShowOnStartup = false` only when that preference is absent. Preserve an existing valid preference value; fail setup with a clear error if the saved value is malformed. This setting is scoped to the Fusion profile.
 - Full profile: do not install Frontdoor UI or the Fusion navigation add-on.
 - Default sketch: if no face/plane is selected, Frontdoor preselects the active body's XY origin plane. A contextual planar face/plane selection should be respected.
-- First start should be ready to model without asking the user to separately choose theme, navigation, or workbench. FreeCAD's Welcome panel still appears in the tested profile; handling or replacing it is unresolved.
+- First start should be ready to model without asking the user to separately choose theme, navigation, or workbench. The Start page default is configured in source; verify on a fresh Windows profile that it no longer replaces the Frontdoor workspace. The Full profile keeps FreeCAD's native Start experience.
 - No add-on-specific long data-generation or other blocking modal prerequisite may be left to the user on the first launch. Provision required data in setup when supported; otherwise expose an actionable progress state.
 
 ## Readiness and failure reporting

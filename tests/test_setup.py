@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import patch
 
@@ -65,6 +66,40 @@ class ManagedInstallVersionTests(unittest.TestCase):
 
             install.assert_called_once()
             self.assertEqual(marker.read_text(encoding="utf-8"), original)
+
+
+class ProfileStartupPreferenceTests(unittest.TestCase):
+    def test_setup_hides_start_page_only_in_the_fusion_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            data = root / "frontdoor-data"
+            executable = root / "FreeCAD.exe"
+            executable.write_text("test executable", encoding="utf-8")
+            executable.chmod(0o755)
+
+            with (
+                patch.dict(os.environ, {DATA_ROOT_ENV: str(data)}),
+                patch.object(setup, "install_pinned_fusion_addon"),
+            ):
+                result = setup.setup_existing_freecad(
+                    executable,
+                    profiles=("fusion", "full"),
+                    progress=lambda _message, _percentage: None,
+                )
+
+            self.assertIsNotNone(result.fusion_profile)
+            self.assertIsNotNone(result.full_profile)
+            fusion_value = ET.parse(result.fusion_profile / "user.cfg").getroot().find(
+                ".//FCParamGroup[@Name='Start']/FCBool[@Name='ShowOnStartup']"
+            )
+            self.assertEqual(fusion_value.get("Value"), "0")
+            full_config = result.full_profile / "user.cfg"
+            self.assertTrue(full_config.is_file())
+            self.assertIsNone(
+                ET.parse(full_config).getroot().find(
+                    ".//FCParamGroup[@Name='Start']/FCBool[@Name='ShowOnStartup']"
+                )
+            )
 
 
 if __name__ == "__main__":

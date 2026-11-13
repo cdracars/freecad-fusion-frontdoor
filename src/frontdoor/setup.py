@@ -23,6 +23,7 @@ from .paths import (
     managed_executable,
     write_managed_marker,
 )
+from .preferences import ensure_default_start_page_hidden
 from .release import latest_windows_release
 from .theme import ensure_default_theme
 from .ui_addon import ensure_default_workbench, install_frontdoor_ui
@@ -51,6 +52,7 @@ def setup_existing_freecad(
         ensure_initial_maximized(profile_root)
     if "fusion" in profiles:
         ensure_default_theme(roots["fusion"])
+        ensure_default_start_page_hidden(roots["fusion"])
         install_frontdoor_ui(roots["fusion"])
         ensure_default_workbench(roots["fusion"])
         install_pinned_fusion_addon(progress)
@@ -71,6 +73,7 @@ def install_managed_copy(asset: ReleaseAsset, progress: Progress) -> SetupResult
     for profile_root in roots.values():
         ensure_initial_maximized(profile_root)
     ensure_default_theme(roots["fusion"])
+    ensure_default_start_page_hidden(roots["fusion"])
     install_frontdoor_ui(roots["fusion"])
     ensure_default_workbench(roots["fusion"])
     downloads = data_root() / "downloads"

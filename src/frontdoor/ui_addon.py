@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import stat
-import tempfile
 from importlib.resources import as_file, files
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -12,6 +10,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from .errors import FrontdoorError
+from .freecad_config import ensure_param_group, read_user_config, write_user_config
 from .paths import ensure_profile
 
 UI_ADDON_FOLDER = "FrontdoorUI"
@@ -29,13 +28,8 @@ def ensure_default_workbench(profile: Path) -> None:
     """Select Frontdoor on first launch without replacing a saved workbench choice."""
     config = profile / "user.cfg"
     try:
-        if config.exists():
-            tree = ET.parse(config)
-            root = tree.getroot()
-        else:
-            root = ET.Element("FCParameters")
-            tree = ET.ElementTree(root)
-        general = _ensure_group(root, ("Root", "BaseApp", "Preferences", "General"))
+        config, tree, root = read_user_config(profile)
+        general = ensure_param_group(root, ("Root", "BaseApp", "Preferences", "General"))
         autoload = next(
             (node for node in general.findall("FCText") if node.get("Name") == "AutoloadModule"),
             None,
@@ -45,7 +39,7 @@ def ensure_default_workbench(profile: Path) -> None:
         if autoload is None:
             autoload = ET.SubElement(general, "FCText", {"Name": "AutoloadModule"})
         autoload.text = "FrontdoorWorkbench"
-        _write_config(tree, config)
+        write_user_config(tree, config)
     except (OSError, ET.ParseError) as exc:
         raise FrontdoorError(f"Could not set the initial Frontdoor workbench in {config}: {exc}") from exc
 
@@ -139,33 +133,3 @@ def _extract_frontdoor_ui_payload(archive_path: Path, destination: Path) -> None
 
     if not required.issubset(seen):
         raise FrontdoorError("The packaged Frontdoor workbench archive is missing required files.")
-
-
-def _ensure_group(parent: ET.Element, names: tuple[str, ...]) -> ET.Element:
-    node = parent
-    for name in names:
-        child = next(
-            (item for item in node.findall("FCParamGroup") if item.get("Name") == name),
-            None,
-        )
-        if child is None:
-            child = ET.SubElement(node, "FCParamGroup", {"Name": name})
-        node = child
-    return node
-
-
-def _write_config(tree: ET.ElementTree, config: Path) -> None:
-    config.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_path = tempfile.mkstemp(prefix="user.", suffix=".tmp", dir=config.parent)
-    try:
-        with os.fdopen(fd, "wb") as stream:
-            tree.write(stream, encoding="utf-8", xml_declaration=True)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary_path, config)
-    except OSError:
-        try:
-            os.unlink(temporary_path)
-        except OSError:
-            pass
-        raise
