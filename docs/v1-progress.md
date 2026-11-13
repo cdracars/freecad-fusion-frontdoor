@@ -2,7 +2,7 @@
 
 **Updated:** 2026-11-13  
 **Current branch:** `codex/fusion-frontdoor-mockup`
-**Publication state:** local commits are ahead of `origin` at `ac0456b`; no changes have been pushed.
+**Publication state:** reviewed source and handoff changes were pushed to the public project branch on 2026-11-13; use the branch HEAD as the current revision.
 
 This record tracks the Windows product path, not only the Frontdoor UI. “Verified” requires evidence on the stated Windows host/build; Linux tests and source inspection do not substitute for Windows behavior.
 
@@ -44,8 +44,7 @@ No elevation request, bridge restart, or new Windows instance was attempted. The
 
 ## Next actions
 
-1. Publish the three reviewed local commits after explicit approval.
-2. Restore access to the existing Windows Herdr pane without restarting/elevating/creating a new instance, install the pinned build toolchain if available, run the package build, and launch the ZIP on the same host.
-3. Validate installation/setup, ordinary-profile preservation, both launch modes, mouse-drawn sketch and feature sequence, save/reopen, navigation, rollback, and failure recovery on Windows.
-4. Capture Windows startup and core-workflow performance baselines; optimize only measured bottlenecks.
-5. Hash-lock the actual Windows wheel set, compare two clean builds, complete the licensing review, and assemble the signed versioned RC with usage steps, prerequisites, checksum, and known limitations. V1 remains active until all acceptance gates pass or a clearly documented external blocker remains.
+1. Restore access to the existing Windows Herdr pane without restarting/elevating/creating a new instance, install the pinned build toolchain if available, run the package build, and launch the ZIP on the same host.
+2. Validate installation/setup, ordinary-profile preservation, both launch modes, mouse-drawn sketch and feature sequence, save/reopen, navigation, rollback, and failure recovery on Windows.
+3. Capture Windows startup and core-workflow performance baselines; optimize only measured bottlenecks.
+4. Hash-lock the actual Windows wheel set, compare two clean builds, complete the licensing review, and assemble the signed versioned RC with usage steps, prerequisites, checksum, and known limitations. V1 remains active until all acceptance gates pass or a clearly documented external blocker remains.
