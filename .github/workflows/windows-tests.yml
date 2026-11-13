@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -39,4 +41,15 @@ jobs:
         run: python -m compileall -q src/frontdoor tests scripts
 
       - name: Check whitespace errors
-        run: git diff --check
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq "pull_request") {
+            $Base = git merge-base "origin/$($env:GITHUB_BASE_REF)" HEAD
+            if ($LASTEXITCODE -ne 0 -or -not $Base) { throw "Could not identify the pull request base commit." }
+            git diff --check "$Base...HEAD"
+          } elseif ($env:GITHUB_EVENT_NAME -eq "push" -and $env:GITHUB_EVENT_BEFORE -notmatch "^0+$") {
+            git diff --check "$env:GITHUB_EVENT_BEFORE...$env:GITHUB_SHA"
+          } else {
+            git diff --check HEAD^ HEAD
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Whitespace errors were found in the checked revision." }
