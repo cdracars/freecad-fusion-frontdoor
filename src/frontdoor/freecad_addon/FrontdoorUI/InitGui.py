@@ -68,6 +68,9 @@ if _addon_dir:
                             launch_token,
                             process_id=os.getpid(),
                             freecad_version=version,
+                            startup_started_ns=int(os.environ["FRONTDOOR_LAUNCH_STARTED_NS"])
+                            if os.environ.get("FRONTDOOR_LAUNCH_STARTED_NS", "").isdecimal()
+                            else None,
                         )
                         _launch_ready_written = True
                     except Exception as exc:

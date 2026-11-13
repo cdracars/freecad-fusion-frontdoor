@@ -26,6 +26,10 @@ class LaunchEnvironmentTests(unittest.TestCase):
 
             self.assertIs(result, process)
             self.assertEqual(popen.call_args.kwargs["env"]["FRONTDOOR_LAUNCH_TOKEN"], token)
+            self.assertGreater(
+                int(popen.call_args.kwargs["env"]["FRONTDOOR_LAUNCH_STARTED_NS"]),
+                0,
+            )
 
     def test_full_profile_does_not_receive_frontdoor_readiness_token(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -41,6 +45,7 @@ class LaunchEnvironmentTests(unittest.TestCase):
                 launcher.launch_freecad(executable, "full")
 
             self.assertNotIn("FRONTDOOR_LAUNCH_TOKEN", popen.call_args.kwargs["env"])
+            self.assertNotIn("FRONTDOOR_LAUNCH_STARTED_NS", popen.call_args.kwargs["env"])
 
 
 if __name__ == "__main__":

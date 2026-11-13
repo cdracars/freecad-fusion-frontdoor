@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -48,6 +49,53 @@ class StartupStatusTests(unittest.TestCase):
             )
 
             self.assertIsNone(read_launch_ready_marker(profile, current_token))
+
+    def test_marker_reports_launch_to_workbench_ready_duration(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            profile = Path(temporary)
+            token = "0123456789abcdef0123456789abcdef"
+
+            marker = write_launch_ready_marker(
+                profile,
+                token,
+                process_id=321,
+                freecad_version="1.1.4",
+                startup_started_ns=time.perf_counter_ns() - 5_000_000,
+            )
+
+            data = read_launch_ready_marker(profile, token)
+            self.assertIsNotNone(data)
+            self.assertGreaterEqual(data["startup_duration_ms"], 5)
+            self.assertLess(data["startup_duration_ms"], 1000)
+
+    def test_invalid_measured_duration_cannot_confirm_startup(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            profile = Path(temporary)
+            token = "0123456789abcdef0123456789abcdef"
+            marker = launch_ready_marker(profile, token)
+            marker.parent.mkdir(parents=True)
+            marker.write_text(
+                '{"token":"%s","state":"ready","pid":321,'
+                '"freecad_version":"1.1.4","startup_duration_ms":NaN}' % token,
+                encoding="utf-8",
+            )
+
+            self.assertIsNone(read_launch_ready_marker(profile, token))
+
+    def test_unrepresentable_duration_cannot_confirm_startup(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            profile = Path(temporary)
+            token = "0123456789abcdef0123456789abcdef"
+            marker = launch_ready_marker(profile, token)
+            marker.parent.mkdir(parents=True)
+            marker.write_text(
+                '{"token":"%s","state":"ready","pid":321,'
+                '"freecad_version":"1.1.4","startup_duration_ms":%s}'
+                % (token, "9" * 400),
+                encoding="utf-8",
+            )
+
+            self.assertIsNone(read_launch_ready_marker(profile, token))
 
     def test_invalid_launch_token_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

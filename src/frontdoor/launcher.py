@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from pathlib import Path
 
 from .errors import FrontdoorError
@@ -22,6 +23,7 @@ def launch_freecad(
     environment = launch_environment(profile)
     if launch_token is not None:
         environment["FRONTDOOR_LAUNCH_TOKEN"] = launch_token
+        environment["FRONTDOOR_LAUNCH_STARTED_NS"] = str(time.perf_counter_ns())
     try:
         process = subprocess.Popen(
             [str(executable), *arguments],

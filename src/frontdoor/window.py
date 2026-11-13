@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from .models import ReleaseAsset, SetupResult
 from .addon import ADDON_COMMIT
 from .errors import FrontdoorError
+from .performance import append_startup_measurement
 from .freecad_addon.FrontdoorUI.startup_status import (
     launch_ready_marker,
     read_launch_ready_marker,
@@ -386,6 +387,16 @@ class MainWindow(QMainWindow):
             ready = read_launch_ready_marker(profile_root(profile), launch_token)
             if ready:
                 marker.unlink(missing_ok=True)
+                performance_log = os.environ.get("FRONTDOOR_PERF_LOG")
+                if performance_log and profile == "fusion":
+                    try:
+                        append_startup_measurement(
+                            performance_log,
+                            profile=profile,
+                            ready=ready,
+                        )
+                    except (OSError, ValueError):
+                        pass
                 self.status_label.setText(
                     f"Frontdoor workbench loaded · FreeCAD {ready['freecad_version']}"
                 )

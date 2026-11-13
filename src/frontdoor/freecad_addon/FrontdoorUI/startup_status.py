@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -25,24 +27,34 @@ def write_launch_ready_marker(
     *,
     process_id: int,
     freecad_version: str,
+    startup_started_ns: int | None = None,
 ) -> Path:
     marker = launch_ready_marker(profile, token)
     marker.parent.mkdir(parents=True, exist_ok=True)
+    data: dict[str, Any] = {
+        "token": token,
+        "state": "ready",
+        "pid": process_id,
+        "freecad_version": freecad_version,
+    }
+    if startup_started_ns is not None:
+        if (
+            isinstance(startup_started_ns, bool)
+            or not isinstance(startup_started_ns, int)
+            or startup_started_ns <= 0
+        ):
+            raise ValueError("Frontdoor startup timestamp is invalid.")
+        duration_ns = time.perf_counter_ns() - startup_started_ns
+        if duration_ns < 0:
+            raise ValueError("Frontdoor startup timestamp is invalid.")
+        data["startup_duration_ms"] = round(duration_ns / 1_000_000, 3)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f"ready-{token}.", suffix=".tmp", dir=marker.parent
     )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            json.dump(
-                {
-                    "token": token,
-                    "state": "ready",
-                    "pid": process_id,
-                    "freecad_version": freecad_version,
-                },
-                stream,
-            )
+            json.dump(data, stream)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, marker)
@@ -66,4 +78,17 @@ def read_launch_ready_marker(profile: Path, token: str) -> dict[str, Any] | None
         or not isinstance(data.get("freecad_version"), str)
     ):
         return None
+    duration = data.get("startup_duration_ms")
+    if duration is not None:
+        try:
+            valid_duration = (
+                not isinstance(duration, bool)
+                and isinstance(duration, (int, float))
+                and math.isfinite(float(duration))
+                and duration >= 0
+            )
+        except (OverflowError, ValueError):
+            valid_duration = False
+        if not valid_duration:
+            return None
     return data
