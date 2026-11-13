@@ -136,7 +136,7 @@ The existing `prototype.html` remains a visual reference, not the application im
 - Errors identify the failed step and leave enough state to retry or clean up the app-managed files.
 - The UI does not label setup complete until the executable and add-on directory are present.
 - The app does not perform Windows installation or profile claims on a non-Windows host.
-- Fusion launch readiness is confirmed only by an in-process Frontdoor activation marker tied to that launch token; launcher survival or exit is not proof. Full FreeCAD status must distinguish a running process from an unconfirmed GUI handoff.
+- Fusion launch status confirms only that the in-process Frontdoor workbench activated and showed its task surface, using a marker tied to that launch token; it does not certify every modeling command or the navigation add-on. Launcher survival or exit is not proof. Full FreeCAD status must distinguish a running process from an unconfirmed GUI handoff.
 - Repeated local GUI smoke runs can be started and closed through a tracked lifecycle; cleanup confirms the process for the selected test profile has exited and demonstrably leaves ordinary FreeCAD processes untouched.
 
 ## Validation still required on Windows

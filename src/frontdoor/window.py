@@ -387,7 +387,7 @@ class MainWindow(QMainWindow):
             if ready:
                 marker.unlink(missing_ok=True)
                 self.status_label.setText(
-                    f"Fusion-friendly FreeCAD is ready · version {ready['freecad_version']}"
+                    f"Frontdoor workbench loaded · FreeCAD {ready['freecad_version']}"
                 )
                 return
 
