@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
@@ -18,6 +19,10 @@ from PySide6.QtWidgets import (
 from .models import ReleaseAsset, SetupResult
 from .addon import ADDON_COMMIT
 from .errors import FrontdoorError
+from .freecad_addon.FrontdoorUI.startup_status import (
+    launch_ready_marker,
+    read_launch_ready_marker,
+)
 from .launcher import launch_freecad
 from .paths import fusion_addon_ready, install_root, managed_executable, managed_version, profile_root
 from .release import latest_windows_release
@@ -55,6 +60,8 @@ def _bytes(value: int) -> str:
 
 
 class MainWindow(QMainWindow):
+    LAUNCH_READY_TIMEOUT_MS = 90_000
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("FreeCAD Fusion Frontdoor")
@@ -62,6 +69,7 @@ class MainWindow(QMainWindow):
         self.resize(1060, 760)
         self._release: ReleaseAsset | None = None
         self._worker: TaskWorker | None = None
+        self._closing = False
         self._executable = managed_executable()
         self._is_windows = os.name == "nt"
         self._build_ui()
@@ -309,6 +317,7 @@ class MainWindow(QMainWindow):
             f"Fusion profile:\n{profile_root('fusion')}\n\n"
             f"Full FreeCAD profile:\n{profile_root('full')}\n\n"
             f"Add-on source: github.com/arxdsilva/freecad-fusion @ {ADDON_COMMIT}\n\n"
+            "Expected installer publisher: FreeCAD Project Association AISBL. The installer must have a valid Authenticode signature.\n\n"
             "Then install the pinned Fusion add-on only in this app's separate profile. Its Windows behavior is "
             "not validated yet. No admin rights or "
             "changes to your existing FreeCAD profile are intended. Continue?"
@@ -353,39 +362,80 @@ class MainWindow(QMainWindow):
         if profile == "fusion" and not fusion_addon_ready():
             QMessageBox.warning(self, "Fusion mode is not ready", "Run setup again to install the Fusion add-on.")
             return
+        launch_token = uuid.uuid4().hex if profile == "fusion" else None
         try:
-            process = launch_freecad(executable, profile)
+            process = launch_freecad(executable, profile, launch_token=launch_token)
         except FrontdoorError as exc:
             QMessageBox.critical(self, "Could not launch FreeCAD", str(exc))
             return
-        self.status_label.setText(f"Starting FreeCAD with the {profile} profile…")
-        QTimer.singleShot(3000, lambda: self._check_launch(process, profile))
-
-    def _check_launch(self, process, profile: str) -> None:
-        exit_code = process.poll()
-        if exit_code is None:
-            self.status_label.setText(
-                f"FreeCAD is still running with the {profile} profile. Add-on startup is not confirmed."
-            )
-            return
-        if exit_code == 0:
-            self.status_label.setText(
-                f"FreeCAD launcher exited normally. Check its window; {profile} add-on startup is not confirmed."
-            )
-            QMessageBox.information(
-                self,
-                "Check the FreeCAD window",
-                "The launcher exited normally. FreeCAD may have handed off to another process; check its window. "
-                "The add-on loading status is not confirmed.",
-            )
-            return
         self.status_label.setText(
-            f"FreeCAD exited with status {exit_code}; {profile} startup and add-on loading were not confirmed."
+            "Waiting for Frontdoor to confirm it loaded…"
+            if launch_token
+            else "Starting Full FreeCAD…"
         )
+        QTimer.singleShot(
+            500,
+            lambda: self._check_launch(process, profile, launch_token, elapsed_ms=500),
+        )
+
+    def _check_launch(self, process, profile: str, launch_token: str | None, *, elapsed_ms: int) -> None:
+        if self._closing:
+            return
+        if launch_token:
+            marker = launch_ready_marker(profile_root(profile), launch_token)
+            ready = read_launch_ready_marker(profile_root(profile), launch_token)
+            if ready:
+                marker.unlink(missing_ok=True)
+                self.status_label.setText(
+                    f"Fusion-friendly FreeCAD is ready · version {ready['freecad_version']}"
+                )
+                return
+
+        exit_code = process.poll()
+        if profile == "full":
+            if exit_code is None:
+                self.status_label.setText(
+                    "Full FreeCAD is running. This clean profile has no Frontdoor readiness signal; check its window."
+                )
+            elif exit_code == 0:
+                self.status_label.setText(
+                    "The Full FreeCAD launcher handed off successfully; GUI readiness is unconfirmed. Check its window."
+                )
+            else:
+                self.status_label.setText(f"Full FreeCAD exited with status {exit_code}.")
+                QMessageBox.warning(
+                    self,
+                    "Full FreeCAD did not start",
+                    f"The FreeCAD process exited with status {exit_code}. Check the FreeCAD logs and try again.",
+                )
+            return
+
+        if exit_code not in (None, 0):
+            self.status_label.setText(f"FreeCAD exited with status {exit_code} before Frontdoor confirmed startup.")
+            QMessageBox.warning(
+                self,
+                "Frontdoor did not start",
+                f"FreeCAD exited with status {exit_code} before Frontdoor became ready. "
+                "You can still try Launch Full FreeCAD or inspect the FreeCAD log.",
+            )
+            return
+
+        if elapsed_ms < self.LAUNCH_READY_TIMEOUT_MS:
+            self.status_label.setText("FreeCAD is starting; waiting for the Frontdoor workbench…")
+            QTimer.singleShot(
+                1000,
+                lambda: self._check_launch(
+                    process, profile, launch_token, elapsed_ms=elapsed_ms + 1000
+                ),
+            )
+            return
+
+        self.status_label.setText("Frontdoor did not confirm startup. The clean Full FreeCAD profile remains available.")
         QMessageBox.warning(
             self,
-            "FreeCAD did not stay open",
-            f"The FreeCAD process exited with status {exit_code}. Check the launch environment and FreeCAD logs.",
+            "Frontdoor did not confirm startup",
+            "The app did not receive an in-process ready signal from Frontdoor within 90 seconds. "
+            "The FreeCAD window may still be opening. Check it before retrying; Launch Full FreeCAD is the recovery option.",
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:
@@ -397,4 +447,5 @@ class MainWindow(QMainWindow):
             )
             event.ignore()
             return
+        self._closing = True
         event.accept()

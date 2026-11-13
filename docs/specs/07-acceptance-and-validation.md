@@ -23,6 +23,7 @@
 | SHA-256 and publisher verification | Code present | Release digest matched; Authenticode status `Valid`; signer accepted | Windows verification passed for 1.1.4 asset |
 | Profile environment isolation | Used by local test harness | GUI reported `App.getUserAppDataDir()` inside the isolated Fusion profile | Both platforms locally verified for tested launches |
 | Theme persistence and first-run Welcome panel | Theme is prefilled; Welcome panel remains | Configured fresh profile opened directly into Frontdoor; persistence not assessed | Windows first-launch surface verified; theme persistence and Linux Welcome behavior open |
+| Launch readiness reporting | Token-scoped in-process signal implemented for Fusion; Full FreeCAD reports process/handoff without claiming Frontdoor readiness | Unit tests validate the marker and token isolation; Windows FreeCAD activation and process-exit/handoff cases remain untested | Partial; verify the handshake in Windows FreeCAD and exercise delayed activation, early exit, and timeout cases |
 | Fusion navigation mappings/NaviCube | Initial add-on launch only | The disabled-preset status displayed `FreeCAD navigation` in an isolated Windows 1.1.4 profile at 100% scale. The 150% smoke exited with `-1073740791` before writing its report. Fusion-enabled status, mouse gestures, NaviCube hit targets, restore/reapply persistence, and Full FreeCAD isolation remain unverified. | Open; Windows acceptance pass defined in [theme and navigation](06-theme-and-navigation.md) |
 | Frontdoor task UI recovery / Full FreeCAD profile | Profile/code path exists; release acceptance incomplete | Full profile not launched | Open |
 
@@ -78,7 +79,7 @@ Before broad distribution, observe Fusion users attempting the first Solid flow 
 
 ## Release blockers and deferred work
 
-**Release blockers:** actual Windows installer and profile run; Authenticode publisher confirmation; Linux and other-build first-run Welcome behavior; Windows navigation and UI recovery; parameterized Windows Solid workflow; user-facing review/confirmation before install; setup status tied to actual readiness.
+**Release blockers:** repeatable Windows installer/profile run; Authenticode publisher check against the real signer after hardening; Linux and other-build first-run Welcome behavior; Windows navigation and UI recovery; parameterized Windows Solid workflow; setup status tied to actual readiness.
 
 **Deferred:** one-click uninstall/profile cleanup, OS-matched themes, importing Fusion data, broad customization of task commands, advanced workspaces beyond validated capabilities, and any assumption that visual similarity alone converts users.
 

@@ -9,19 +9,19 @@ The Windows setup path installs an app-managed FreeCAD copy beside any existing 
 - Which pinned add-on and Frontdoor files will be staged.
 - A plain statement that this creates a second copy and does not change the user's ordinary FreeCAD profile.
 
-The user confirms the setup before any installer is executed. The current desktop UI shows release information and paths but does not yet implement a distinct review/confirmation step; this is an acceptance gap.
+The desktop UI asks the user to confirm the version, installer size and source, install location, both profile locations, pinned add-on revision, and expected publisher before setup starts. Publisher identity is enforced against the certificate's `CN` and `O` fields; both must exactly match `FreeCAD Project Association AISBL` after case folding and optional removal of the legal leading article `The`. Substring matches and one-field matches are rejected. The UI still needs a Windows visual/interaction review.
 
 ## Managed Windows install
 
 1. Read the latest stable x64 Windows installer metadata from the official FreeCAD GitHub releases API. Ignore draft, prerelease, and development releases.
 2. Require HTTPS and expected GitHub release hosts. Require an asset size and SHA-256 digest from release metadata.
 3. Download to Frontdoor's data area using a temporary file. Verify size and SHA-256 before use.
-4. Verify the Windows Authenticode signature and expected FreeCAD Project Association publisher before execution. Match the publisher identity case-insensitively and allow the certificate's legal subject to include the leading article “The”; require the signature status to be `Valid`.
+4. Verify the Windows Authenticode signature and expected FreeCAD Project Association publisher before execution. Require both certificate `CN` and `O` fields to exactly match `FreeCAD Project Association AISBL` case-insensitively, allowing the legal leading article “The”; reject substring and one-field matches. Require signature status `Valid`.
 5. Install silently into the app's per-user managed program directory. Do not elevate, change `PATH`, or use `/NCRC`.
 6. Confirm the expected `FreeCAD.exe` exists before writing the managed-install record or labeling setup ready.
 7. On retry, reuse/repair a correctly owned app-managed directory. Refuse to overwrite an unowned populated directory.
 
-**Windows test evidence (2026-11-12):** the official stable FreeCAD 1.1.4 x64 installer asset (`FreeCAD_1.1.4-Windows-x86_64-py311-installer.exe`) matched release metadata SHA-256 `845f7101d33faf257a82a0cadc5f4f3804441f46ee493eb32b92fcf9c7147a24`. Windows reported Authenticode status `Valid` and signer subject `CN=The FreeCAD project association AISBL, O=The FreeCAD project association AISBL, L=Brussels, C=BE`; the case-insensitive publisher check accepts this legal subject. The managed install completed under the isolated test root, and `FreeCADCmd --version` reported 1.1.4. The Fusion profile, Frontdoor UI, and pinned navigation add-on were staged, and the GUI launched into the Frontdoor workbench. This validates the managed install and staging path on the test host; the complete setup UI review/confirmation, upgrade/repair behavior, no-elevation evidence, and preservation of an existing FreeCAD profile remain unverified.
+**Windows test evidence (2026-11-12):** the official stable FreeCAD 1.1.4 x64 installer asset (`FreeCAD_1.1.4-Windows-x86_64-py311-installer.exe`) matched release metadata SHA-256 `845f7101d33faf257a82a0cadc5f4f3804441f46ee493eb32b92fcf9c7147a24`. Windows reported Authenticode status `Valid` and signer subject `CN=The FreeCAD project association AISBL, O=The FreeCAD project association AISBL, L=Brussels, C=BE`; the original substring-only publisher check accepted this subject. The managed install completed under the isolated test root, and `FreeCADCmd --version` reported 1.1.4. The Fusion profile, Frontdoor UI, and pinned navigation add-on were staged, and the GUI launched into the Frontdoor workbench. The stricter `CN`/`O` comparison added afterward still needs verification against the real Windows certificate. The setup confirmation exists in source but needs visual/interaction review; upgrade/repair behavior, no-elevation evidence, and preservation of an existing FreeCAD profile remain unverified.
 
 ## Profile contract
 
@@ -45,7 +45,7 @@ The existing-install CLI can prepare a selected profile around an executable alr
 
 ## Readiness and failure reporting
 
-Do not label setup complete until the executable, profile ownership records, staged add-on directories, required files, and intended initial preferences are present. Report each stage distinctly (download, verification, install, profile preparation, extension staging, launch). A process surviving a short startup check is not evidence that the workbench loaded.
+Do not label setup complete until the executable, profile ownership records, staged add-on directories, required files, and intended initial preferences are present. Report each stage distinctly (download, verification, install, profile preparation, extension staging, launch). A process surviving a short startup check is not evidence that the workbench loaded. For a Fusion launch, the app must wait for a token-matched marker written in-process only after `FrontdoorWorkbench` activates and the task surface is shown. A stale marker or a successful launcher-process exit cannot confirm readiness. For Full FreeCAD, report process/handoff state without claiming the Frontdoor workbench is ready.
 
 On failure, preserve enough state to retry or repair safely. Never claim that an existing FreeCAD profile was unchanged without evidence from the path/environment isolation design.
 

@@ -8,6 +8,8 @@ The repo contains a visual mockup and an early Python/PySide6 MVP. The app is de
 
 The expanded product, UX, architecture, workflow, navigation, and validation specifications are indexed in [`docs/specs/`](docs/specs/README.md).
 
+Track the Windows V1 acceptance gates, evidence, blockers, and next actions in [`docs/v1-progress.md`](docs/v1-progress.md).
+
 ## Preview
 
 Open `prototype.html` in a browser. Use the arrows at the bottom of the page (or the left/right arrow keys) to compare the three screens:

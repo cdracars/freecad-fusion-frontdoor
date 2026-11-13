@@ -8,6 +8,7 @@ import FreeCADGui as Gui
 
 _addon_dir = None
 _profile = os.environ.get("FREECAD_USER_HOME")
+_launch_ready_written = False
 if _profile:
     _candidate = os.path.join(_profile, "Mod", "FrontdoorUI")
     if os.path.isfile(os.path.join(_candidate, "task_surface.py")):
@@ -52,9 +53,27 @@ if _addon_dir:
                 task_surface.register_workbench(self)
 
             def Activated(self):
+                global _launch_ready_written
                 import task_surface
 
                 task_surface.show()
+                launch_token = os.environ.get("FRONTDOOR_LAUNCH_TOKEN")
+                if launch_token and not _launch_ready_written:
+                    try:
+                        from startup_status import write_launch_ready_marker
+
+                        version = ".".join(str(part) for part in App.Version()[:3])
+                        write_launch_ready_marker(
+                            _profile or App.getUserAppDataDir(),
+                            launch_token,
+                            process_id=os.getpid(),
+                            freecad_version=version,
+                        )
+                        _launch_ready_written = True
+                    except Exception as exc:
+                        App.Console.PrintWarning(
+                            "[Frontdoor] Could not confirm launch readiness: %s\n" % exc
+                        )
 
             def Deactivated(self):
                 import task_surface

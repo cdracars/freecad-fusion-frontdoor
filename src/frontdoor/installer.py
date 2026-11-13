@@ -16,7 +16,41 @@ EXPECTED_PUBLISHER = "freecad project association aisbl"
 
 
 def _is_expected_publisher(subject: str) -> bool:
-    return EXPECTED_PUBLISHER in subject.casefold()
+    fields: dict[str, str] = {}
+    component: list[str] = []
+    components: list[str] = []
+    escaped = False
+    for character in subject:
+        if escaped:
+            component.append(character)
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == ",":
+            components.append("".join(component).strip())
+            component.clear()
+        else:
+            component.append(character)
+    if escaped:
+        return False
+    components.append("".join(component).strip())
+
+    for item in components:
+        name, separator, value = item.partition("=")
+        name = name.strip().upper()
+        if not separator or not name:
+            return False
+        if name in {"CN", "O"} and name in fields:
+            return False
+        fields.setdefault(name, value.strip())
+
+    def matches_legal_name(value: str | None) -> bool:
+        normalized = " ".join((value or "").casefold().split())
+        if normalized.startswith("the "):
+            normalized = normalized[4:]
+        return normalized == EXPECTED_PUBLISHER
+
+    return matches_legal_name(fields.get("CN")) and matches_legal_name(fields.get("O"))
 
 
 def install_windows_freecad(asset: ReleaseAsset, target: Path, progress: Progress) -> Path:

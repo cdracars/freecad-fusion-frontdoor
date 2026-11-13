@@ -21,7 +21,7 @@ This is an independent community tool. It is not affiliated with Autodesk or the
 ## First-run flow
 
 1. **Review** — show the FreeCAD version, installer size, install location, add-on source, and the exact directories this setup will create. Say plainly that setup creates a second FreeCAD copy and a separate profile.
-2. **Install FreeCAD** — download the x64 installer over HTTPS from the selected official release. Verify the downloaded bytes against the SHA-256 digest in GitHub's release metadata. Check the Windows Authenticode signature and expected FreeCAD publisher before running it. Compare the publisher identity case-insensitively and accept the signer’s legal subject with or without a leading “The”; require signature status `Valid`. Install silently into the app's per-user directory; never request elevation. Do not use the installer `/NCRC` option.
+2. **Install FreeCAD** — download the x64 installer over HTTPS from the selected official release. Verify the downloaded bytes against the SHA-256 digest in GitHub's release metadata. Check the Windows Authenticode signature and expected FreeCAD publisher before running it. Require both certificate `CN` and `O` fields to exactly match `FreeCAD Project Association AISBL` case-insensitively, allowing the legal leading article “The”; reject substring and one-field matches. Require signature status `Valid`. Install silently into the app's per-user directory; never request elevation. Do not use the installer `/NCRC` option.
 3. **Set up Fusion-friendly mode** — create the isolated profile, install the pinned navigation add-on and Frontdoor-owned UI workbench, and apply the Frontdoor theme. Run compatibility checks before marking each feature ready. Set FreeCAD's documented `FREECAD_USER_HOME`, `FREECAD_USER_DATA`, and `FREECAD_USER_TEMP` variables only for this app's launch process, after creating those directories. Never edit the user's regular FreeCAD configuration or `%APPDATA%\FreeCAD` add-on folders.
 4. **Launch** — offer `Fusion-friendly FreeCAD` and `Full FreeCAD`. The first uses the app-managed experience profile; Full FreeCAD uses a clean separate profile without Frontdoor UI changes. The user's original FreeCAD shortcut remains independent.
 
@@ -95,7 +95,7 @@ The current development harness is `frontdoor-smoke` for Linux/X11. It tags each
 ## Safety and recovery
 
 - No administrator rights, registry edits, changes to PATH, or modification of a pre-existing FreeCAD profile.
-- Require an explicit confirmation that names the download source, size, install directory, and profile directory before setup starts.
+- Require an explicit confirmation that names the download source, size, expected publisher, install directory, and both profile directories before setup starts.
 - Do not run an installer if its SHA-256 digest or Authenticode signature is missing or invalid. Show an actionable error instead.
 - Download into the app's own data directory; use temporary files and atomic rename; never extract archive entries outside the intended add-on directory.
 - Make retry safe: detect an existing app-managed install and offer repair/reuse instead of overwriting an unrelated directory.
@@ -136,7 +136,7 @@ The existing `prototype.html` remains a visual reference, not the application im
 - Errors identify the failed step and leave enough state to retry or clean up the app-managed files.
 - The UI does not label setup complete until the executable and add-on directory are present.
 - The app does not perform Windows installation or profile claims on a non-Windows host.
-- A launcher process that survives its short startup check is not proof that FreeCAD loaded the add-on; manual UI/log confirmation remains necessary.
+- Fusion launch readiness is confirmed only by an in-process Frontdoor activation marker tied to that launch token; launcher survival or exit is not proof. Full FreeCAD status must distinguish a running process from an unconfirmed GUI handoff.
 - Repeated local GUI smoke runs can be started and closed through a tracked lifecycle; cleanup confirms the process for the selected test profile has exited and demonstrably leaves ordinary FreeCAD processes untouched.
 
 ## Validation still required on Windows
