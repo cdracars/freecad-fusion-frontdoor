@@ -2,8 +2,8 @@
 
 **Updated:** 2026-11-13  
 **Current branch:** `codex/fusion-frontdoor-mockup`
-**Current local revision:** `bd00309`
-**Current remote revision:** `ac0456b` (local branch is two commits ahead; publication is awaiting approval)
+**Current local revision:** `b3fd8c2`
+**Current remote revision:** `ac0456b` (local branch is three commits ahead; publication is awaiting approval)
 
 This record tracks the Windows product path, not only the Frontdoor UI. “Verified” requires evidence on the stated Windows host/build; Linux tests and source inspection do not substitute for Windows behavior.
 
@@ -44,7 +44,7 @@ No elevation request, bridge restart, or new Windows instance was attempted. The
 
 ## Next actions
 
-1. Independently review the package scaffold, specs, and current diff; commit local work and publish only after explicit approval.
+1. Publish the three reviewed local commits after explicit approval.
 2. Restore access to the existing Windows Herdr pane without restarting/elevating/creating a new instance, install the pinned build toolchain if available, run the package build, and launch the ZIP on the same host.
 3. Validate installation/setup, ordinary-profile preservation, both launch modes, mouse-drawn sketch and feature sequence, save/reopen, navigation, rollback, and failure recovery on Windows.
 4. Capture Windows startup and core-workflow performance baselines; optimize only measured bottlenecks.
