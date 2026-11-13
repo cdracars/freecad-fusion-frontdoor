@@ -12,6 +12,13 @@ if ($WorkingTree) {
 if ($env:OS -ne "Windows_NT") {
     throw "The Windows package must be built on Windows."
 }
+if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
+    throw "The Windows package must be built from an x64 process on an AMD64 host."
+}
+$WindowsBuild = Get-CimInstance -ClassName Win32_OperatingSystem
+if (-not $WindowsBuild.Caption -or -not $WindowsBuild.Version -or -not $WindowsBuild.BuildNumber) {
+    throw "Could not identify the Windows build host version."
+}
 
 $PythonVersion = & py -3.13 -c "import platform, sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} {platform.architecture()[0]}')"
 if ($LASTEXITCODE -ne 0 -or $PythonVersion.Trim() -ne "3.13.17 64bit") {
@@ -29,8 +36,36 @@ $BuildPythonVersion = & $Python -c "import platform, sys; print(f'{sys.version_i
 if ($LASTEXITCODE -ne 0 -or $BuildPythonVersion.Trim() -ne "3.13.17 64bit") {
     throw "The existing build virtual environment does not use the required Python 3.13.17 x64. Remove only .venv-windows-build and rerun this script."
 }
-& $Python -m pip install --disable-pip-version-check --requirement "requirements\windows-build.txt"
-if ($LASTEXITCODE -ne 0) { throw "Could not install the pinned Windows package-build requirements." }
+$PipVersionOutput = (& $Python -m pip --version).Trim()
+if ($LASTEXITCODE -ne 0 -or $PipVersionOutput -notmatch '^pip\s+(\S+)') {
+    throw "Could not identify pip in the isolated build environment."
+}
+$PipVersion = $Matches[1]
+$DependencyReport = Join-Path $env:TEMP ("frontdoor-pip-report-" + [guid]::NewGuid().ToString("N") + ".json")
+try {
+    & $Python -m pip install --disable-pip-version-check --report $DependencyReport --force-reinstall --requirement "requirements\windows-build.txt"
+    if ($LASTEXITCODE -ne 0) { throw "Could not install the pinned Windows package-build requirements." }
+    $PipReport = Get-Content -Raw $DependencyReport | ConvertFrom-Json
+    if ($PipReport.version -ne "1" -or $PipReport.pip_version -ne $PipVersion) {
+        throw "pip's dependency report version or pip identity did not match the active build environment."
+    }
+    $ResolvedPackages = @($PipReport.install | ForEach-Object {
+        $Package = $_
+        $Sha256 = $Package.download_info.archive_info.hashes.sha256
+        if (-not $Sha256) {
+            throw "The resolved build package '$($Package.metadata.name)' has no recorded SHA-256 archive hash."
+        }
+        [ordered]@{
+            name = $Package.metadata.name
+            version = $Package.metadata.version
+            sha256 = $Sha256.ToLowerInvariant()
+        }
+    } | Sort-Object name)
+    if ($ResolvedPackages.Count -eq 0) { throw "pip returned no resolved package provenance." }
+}
+finally {
+    Remove-Item -LiteralPath $DependencyReport -Force -ErrorAction SilentlyContinue
+}
 
 & $Python "scripts\build_frontdoor_payload.py"
 if ($LASTEXITCODE -ne 0) { throw "Could not prepare the Frontdoor workbench resource archive." }
@@ -43,6 +78,11 @@ $VsRoot = & $VsWhere -latest -products "*" -property installationPath
 if ($LASTEXITCODE -ne 0 -or -not $VsRoot) { throw "Could not locate Visual Studio Build Tools." }
 $VcVars = Join-Path $VsRoot "VC\Auxiliary\Build\vcvars64.bat"
 if (-not (Test-Path $VcVars)) { throw "The Visual Studio x64 developer environment was not found: $VcVars" }
+$VsInstallationVersion = (& $VsWhere -latest -products "*" -property installationVersion).Trim()
+$VsDisplayVersion = (& $VsWhere -latest -products "*" -property catalog_productDisplayVersion).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $VsInstallationVersion -or -not $VsDisplayVersion) {
+    throw "Could not identify the selected Visual Studio Build Tools version."
+}
 
 $BuildRoot = Join-Path $RepoRoot "build\windows"
 $Ownership = Join-Path $BuildRoot ".frontdoor-build.json"
@@ -71,6 +111,11 @@ foreach ($Line in $VsEnvironment) {
         [Environment]::SetEnvironmentVariable($Name, $Value, "Process")
     }
 }
+$null = Get-Command cl.exe -ErrorAction Stop
+$CompilerVersion = (& cl.exe /? 2>&1 | Select-String -Pattern "Compiler Version" | Select-Object -First 1).Line.Trim()
+if (-not $CompilerVersion -or -not $env:WindowsSDKVersion) {
+    throw "Could not identify the active MSVC compiler and Windows SDK versions."
+}
 
 $env:PYTHONPATH = Join-Path $RepoRoot "src"
 & $Deploy --force --no-install --no-warn --mode standalone "scripts\frontdoor_entry.py"
@@ -95,16 +140,28 @@ Copy-Item -LiteralPath $AppFolders[0].FullName -Destination $StagedApp -Recurse
 Copy-Item -LiteralPath "docs\portable-windows-preview.txt" -Destination (Join-Path $Stage "README.txt")
 Copy-Item -LiteralPath "LICENSE" -Destination (Join-Path $Stage "LICENSE.txt")
 Copy-Item -LiteralPath "THIRD_PARTY_NOTICES.md" -Destination (Join-Path $Stage "THIRD_PARTY_NOTICES.txt")
+Copy-Item -LiteralPath "requirements\windows-build.txt" -Destination (Join-Path $Stage "WINDOWS-BUILD-REQUIREMENTS.txt")
+$ResolvedPackages | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 (Join-Path $Stage "BUILD-DEPENDENCIES.json")
 @(
     "Product: FreeCAD Fusion Frontdoor"
     "Version: $Version"
     "Source revision: $Revision"
+    "Windows edition: $($WindowsBuild.Caption)"
+    "Windows version: $($WindowsBuild.Version)"
+    "Windows build: $($WindowsBuild.BuildNumber)"
+    "Windows architecture: $env:PROCESSOR_ARCHITECTURE"
     "Python build version: $PythonVersion"
+    "pip: $PipVersion"
+    "Visual Studio installation version: $VsInstallationVersion"
+    "Visual Studio display version: $VsDisplayVersion"
+    "MSVC compiler: $CompilerVersion"
+    "Windows SDK: $env:WindowsSDKVersion"
     "PySide6: 6.12.0"
     "Nuitka: 4.3.4"
     "ordered-set: 4.1.0"
     "zstandard: 0.25.0"
     "Signing: unsigned review candidate"
+    "Reproducibility: not established; resolved package hashes are recorded for this build only"
 ) | Set-Content -Encoding utf8 (Join-Path $Stage "BUILD-INFO.txt")
 
 $Dist = Join-Path $RepoRoot "dist"
