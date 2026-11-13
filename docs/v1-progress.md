@@ -2,8 +2,7 @@
 
 **Updated:** 2026-11-13  
 **Current branch:** `codex/fusion-frontdoor-mockup`
-**Current local revision:** `b3fd8c2`
-**Current remote revision:** `ac0456b` (local branch is three commits ahead; publication is awaiting approval)
+**Publication state:** local commits are ahead of `origin` at `ac0456b`; no changes have been pushed.
 
 This record tracks the Windows product path, not only the Frontdoor UI. “Verified” requires evidence on the stated Windows host/build; Linux tests and source inspection do not substitute for Windows behavior.
 
@@ -20,7 +19,7 @@ This record tracks the Windows product path, not only the Frontdoor UI. “Verif
 | Reliable operation and repeatable Windows validation | Partial | Fusion launch status now waits for a launch-token marker written after Frontdoor workbench activation and task-surface display. Unit tests cover marker serialization and token isolation; activation-to-marker and UI timeout/handoff behavior remain untested inside FreeCAD/Windows. Individual Windows smoke processes exited and were cleaned up; there is no Windows-owned test lifecycle runner. |
 | Performance measured and bottlenecks improved | Open | No actual Windows startup/responsiveness/core-operation baseline exists. Do not describe this project as optimized until measurements and comparison exist. |
 | Automated checks and independent review | Partial | Twenty-one local unit tests pass, including publisher spoof rejection, startup marker/token checks, and portable add-on payload resource staging. Independent review confirmed exact CN/O matching against the recorded signer format and identified/fixed a PowerShell condition issue. The Windows package script itself and actual Windows certificate/full user journey still need runtime review/validation. |
-| Release candidate, usage guide, and limitations | Open | Portable unsigned ZIP path and preview instructions are documented, but no Windows artifact or checksum exists. License review, Windows smoke, signed candidate, release notes, and final handoff remain. |
+| Release candidate, usage guide, and limitations | Open | Portable unsigned ZIP path and preview instructions are documented, but no Windows artifact or checksum exists. No project `LICENSE` file is present; choose and document the project license before public app distribution. Qt/license review, Windows smoke, signed candidate, release notes, and final handoff remain. |
 
 ## Current work
 
@@ -31,6 +30,7 @@ This record tracks the Windows product path, not only the Frontdoor UI. “Verif
 - Independent review found no remaining bypass for the recorded publisher subject format. It also identified that the subject parser is intentionally partial and the actual certificate still needs a post-change Windows run. Follow-up review found the readiness signal is token-isolated and flagged the original status wording as broader than the evidence; the UI/spec wording is now narrowed to workbench load.
 - The local packaging scaffold uses Qt's official `pyside6-deploy` in standalone mode, pinned exact versions (Python 3.13.17 x64; PySide6 6.12.0; Nuitka 4.3.4; ordered-set 4.1.0; zstandard 0.25.0), and a generated ZIP resource for the Frontdoor workbench. `scripts/build_windows.ps1` creates an isolated build venv, checks for Visual Studio `dumpbin`, refuses dirty-source builds and unowned output directories, creates an unsigned ZIP with build metadata/notices, and emits a SHA-256 sidecar. Inputs are not yet hash-locked; artifact output, clean-machine start, and included Qt runtime contents remain unverified on Windows. See [packaging research](../research/windows-pyside6-packaging.md).
 - The generated `pysidedeploy.spec` is local build state and intentionally excluded from the preview artifact to avoid leaking machine paths. The package notice calls for checking the actual included Qt modules and their license obligations before distribution. This is not a legal determination.
+- The repository currently has no root `LICENSE`/`COPYING` file. The Windows review package includes a third-party notice, but its own redistribution terms need to be documented before public distribution; no license has been selected or added.
 
 ## Windows host access blocker
 
