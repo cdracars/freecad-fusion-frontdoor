@@ -27,11 +27,11 @@ On the first launch of a prepared Fusion profile, the add-on must apply its defa
 ### Acceptance checks for the Windows navigation pass
 
 1. On a fresh isolated Fusion profile with the pinned add-on staged and native navigation initially selected, start FreeCAD. Confirm the add-on applies the preset, `Gui::RevitNavigationStyle` and cursor zoom are enabled, and Frontdoor shows `Fusion navigation` after startup. Confirm an intentionally bare UI-only profile fails the navigation smoke with a clear missing-add-on report.
-2. Use a visible test solid and verify wheel zoom is cursor-centered, middle-drag pans, and Shift + middle-drag orbits. Record before/after camera state so a successful launch alone cannot pass this check.
+2. Use a visible test solid and verify wheel zoom is cursor-centered, middle-drag pans, and Shift + middle-drag orbits. Record before/after camera state so a successful launch alone cannot pass this check. Synthetic Qt wheel events may need to be sent through the viewport's parent widget; do not infer physical input delivery or cursor-centering accuracy from that synthetic route alone.
 3. Drag the NaviCube center to orbit, then click a face and an edge/corner to confirm orbit and standard-view hit targets remain distinct.
 4. Use Tools > Restore my previous FreeCAD settings. Confirm the indicator changes to native navigation, the mouse mapping returns to the saved native setting, and the restored choice persists through a restart.
 5. Reapply Fusion navigation and confirm the indicator and mapping return. Confirm the separate Full FreeCAD profile remains unchanged.
-6. Repeat the checks at 100% and 150% display scaling. Keep menus usable and do not introduce a new toolbar or hide menus to accommodate the indicator.
+6. Repeat the checks at 100% and 150% display scaling. Keep menus usable and do not introduce a new toolbar or hide menus to accommodate the indicator. Separate synthetic GUI-event smoke evidence from a physical mouse review; the latter is required for user-facing compatibility claims.
 
 Do not mark the navigation pass verified when only the profile, add-on package, startup process, or preference value is present. Gesture and restore behavior must be observed on the stated Windows FreeCAD build.
 

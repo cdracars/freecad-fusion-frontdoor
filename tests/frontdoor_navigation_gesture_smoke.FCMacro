@@ -1,0 +1,286 @@
+"""Exercise Fusion navigation gestures in an isolated FreeCAD profile.
+
+The macro creates and removes a disposable solid, sends Qt mouse events to the
+active 3D viewport (wheel events are sent through its parent when the viewport
+does not accept them), and records camera changes in FRONTDOOR_GESTURE_REPORT.
+This is a GUI-event smoke test; it does not replace a physical mouse review.
+"""
+
+import json
+import math
+import os
+import re
+import traceback
+
+import FreeCAD as App
+import FreeCADGui as Gui
+from PySide import QtCore, QtGui, QtWidgets
+
+
+_report_path = os.environ.get(
+    "FRONTDOOR_GESTURE_REPORT",
+    os.path.join(App.getUserAppDataDir(), "frontdoor_gesture_smoke.json"),
+)
+_main = Gui.getMainWindow()
+_report = {"checks": {}, "failures": []}
+_finished = False
+
+
+def _camera_state(view):
+    camera_description = view.getCamera()
+
+    def field(name, count):
+        match = re.search(
+            r"\b" + re.escape(name) + r"\s+" + r"\s+".join([r"([-+0-9.eE]+)"] * count),
+            camera_description,
+        )
+        if match is None:
+            raise RuntimeError("Camera description is missing %s." % name)
+        return tuple(float(value) for value in match.groups())
+
+    return {
+        "description": camera_description,
+        "position": field("position", 3),
+        "orientation": tuple(float(value) for value in view.getCameraOrientation().Q),
+        "focal_distance": field("focalDistance", 1)[0],
+        "height": field("height", 1)[0] if re.search(r"\bheight\s+", camera_description) else None,
+    }
+
+
+def _distance(left, right):
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right)))
+
+
+def _rotation_delta(left, right):
+    dot = abs(sum(a * b for a, b in zip(left, right)))
+    dot = max(-1.0, min(1.0, dot))
+    return 2.0 * math.acos(dot)
+
+
+def _mouse(widget, event_type, point, button, buttons, modifiers):
+    local = QtCore.QPointF(point)
+    global_pos = QtCore.QPointF(widget.mapToGlobal(point))
+    event = QtGui.QMouseEvent(
+        event_type,
+        local,
+        global_pos,
+        button,
+        buttons,
+        modifiers,
+    )
+    QtWidgets.QApplication.sendEvent(widget, event)
+    QtWidgets.QApplication.processEvents()
+
+
+def _drag(widget, start, end, button, modifiers):
+    _mouse(
+        widget,
+        QtCore.QEvent.MouseButtonPress,
+        start,
+        button,
+        button,
+        modifiers,
+    )
+    for index in range(1, 7):
+        fraction = index / 6.0
+        point = QtCore.QPoint(
+            round(start.x() + (end.x() - start.x()) * fraction),
+            round(start.y() + (end.y() - start.y()) * fraction),
+        )
+        _mouse(
+            widget,
+            QtCore.QEvent.MouseMove,
+            point,
+            QtCore.Qt.NoButton,
+            button,
+            modifiers,
+        )
+    _mouse(
+        widget,
+        QtCore.QEvent.MouseButtonRelease,
+        end,
+        button,
+        QtCore.Qt.NoButton,
+        modifiers,
+    )
+
+
+def _wheel(widget, point, angle_delta):
+    local = QtCore.QPointF(point)
+    global_pos = QtCore.QPointF(widget.mapToGlobal(point))
+    event = QtGui.QWheelEvent(
+        local,
+        global_pos,
+        QtCore.QPoint(0, 0),
+        QtCore.QPoint(0, angle_delta),
+        QtCore.Qt.NoButton,
+        QtCore.Qt.NoModifier,
+        QtCore.Qt.NoScrollPhase,
+        False,
+    )
+    QtWidgets.QApplication.sendEvent(widget, event)
+    QtWidgets.QApplication.processEvents()
+    return event.isAccepted()
+
+
+def _require(condition, message):
+    if not condition:
+        _report["failures"].append(message)
+
+
+def _check_gestures():
+    global _finished
+    if _finished:
+        return
+    _finished = True
+    document = None
+    try:
+        nav = App.ParamGet("User parameter:BaseApp/Preferences/Mod/FreecadFusion")
+        view_preferences = App.ParamGet("User parameter:BaseApp/Preferences/View")
+        _require(nav.GetBool("Enabled", False), "Fusion navigation preset is disabled.")
+        _require(
+            view_preferences.GetString("NavigationStyle", "") == "Gui::RevitNavigationStyle",
+            "The active navigation style is not Revit/Fusion-compatible.",
+        )
+        _require(view_preferences.GetBool("ZoomAtCursor", False), "Cursor-centered zoom is disabled.")
+
+        document = App.newDocument("FrontdoorNavigationSmoke")
+        solid = document.addObject("Part::Box", "NavigationTestSolid")
+        solid.Length = 20
+        solid.Width = 20
+        solid.Height = 20
+        document.recompute()
+        view = Gui.activeView()
+        view.viewAxonometric()
+        view.fitAll()
+        QtWidgets.QApplication.processEvents()
+
+        from freecad_fusion import navicube_drag
+
+        navicube_drag.install_all()
+        viewport = next(iter(navicube_drag._viewports()), None)
+        _require(viewport is not None, "No FreeCAD 3D viewport was found for gesture input.")
+        if viewport is not None:
+            viewport.setFocus()
+            center = QtCore.QPoint(viewport.width() // 2, viewport.height() // 2)
+            initial_camera = view.getCamera()
+            camera_before = _camera_state(view)
+
+            _drag(
+                viewport,
+                center,
+                center + QtCore.QPoint(48, 22),
+                QtCore.Qt.MiddleButton,
+                QtCore.Qt.NoModifier,
+            )
+            camera_after_pan = _camera_state(view)
+            pan_distance = _distance(camera_before["position"], camera_after_pan["position"])
+            _report["checks"]["middle_drag_pan_position_delta"] = pan_distance
+            _require(pan_distance > 0.01, "Middle-drag did not pan the view.")
+
+            view.setCamera(initial_camera)
+            camera_before_zoom = _camera_state(view)
+            viewport_wheel_accepted = _wheel(viewport, center, 120)
+            camera_after_zoom = _camera_state(view)
+            zoom_deltas = [
+                _distance(camera_before_zoom["position"], camera_after_zoom["position"]),
+                abs(camera_before_zoom["focal_distance"] - camera_after_zoom["focal_distance"]),
+            ]
+            if camera_before_zoom["height"] is not None and camera_after_zoom["height"] is not None:
+                zoom_deltas.append(abs(camera_before_zoom["height"] - camera_after_zoom["height"]))
+            zoom_delta = max(zoom_deltas)
+            _report["checks"]["viewport_wheel_event_accepted"] = viewport_wheel_accepted
+            wheel_event_accepted = viewport_wheel_accepted
+            if zoom_delta <= 0.01:
+                parent = viewport.parentWidget()
+                parent_point = viewport.mapTo(parent, center)
+                parent_wheel_accepted = _wheel(parent, parent_point, -120)
+                camera_after_parent_wheel = _camera_state(view)
+                parent_deltas = [
+                    _distance(camera_before_zoom["position"], camera_after_parent_wheel["position"]),
+                    abs(
+                        camera_before_zoom["focal_distance"]
+                        - camera_after_parent_wheel["focal_distance"]
+                    ),
+                ]
+                if camera_before_zoom["height"] is not None and camera_after_parent_wheel["height"] is not None:
+                    parent_deltas.append(
+                        abs(camera_before_zoom["height"] - camera_after_parent_wheel["height"])
+                    )
+                parent_delta = max(parent_deltas)
+                _report["checks"]["parent_wheel_event_accepted"] = parent_wheel_accepted
+                _report["checks"]["parent_wheel_camera_change_delta"] = parent_delta
+                wheel_event_accepted = parent_wheel_accepted
+                if parent_delta > zoom_delta:
+                    zoom_delta = parent_delta
+                    camera_after_zoom = camera_after_parent_wheel
+            _report["checks"]["wheel_camera_change_delta"] = zoom_delta
+            _report["checks"]["wheel_camera_before"] = camera_before_zoom
+            _report["checks"]["wheel_camera_after"] = camera_after_zoom
+            _require(wheel_event_accepted, "Mouse wheel event was not accepted by the viewport or its parent.")
+            _require(zoom_delta > 0.01, "Mouse wheel did not zoom the view.")
+
+            view.setCamera(initial_camera)
+            camera_before_orbit = _camera_state(view)
+            _drag(
+                viewport,
+                center,
+                center + QtCore.QPoint(48, 22),
+                QtCore.Qt.MiddleButton,
+                QtCore.Qt.ShiftModifier,
+            )
+            camera_after_orbit = _camera_state(view)
+            orbit_angle = _rotation_delta(
+                camera_before_orbit["orientation"], camera_after_orbit["orientation"]
+            )
+            _report["checks"]["shift_middle_drag_orbit_radians"] = orbit_angle
+            _require(orbit_angle > 0.001, "Shift + middle-drag did not orbit the view.")
+
+            view.setCamera(initial_camera)
+            cube_rect = navicube_drag._cube_rect(viewport)
+            cube_center = QtCore.QPoint(round(cube_rect.center().x()), round(cube_rect.center().y()))
+            camera_before_cube = _camera_state(view)
+            _drag(
+                viewport,
+                cube_center,
+                cube_center + QtCore.QPoint(36, 18),
+                QtCore.Qt.LeftButton,
+                QtCore.Qt.NoModifier,
+            )
+            camera_after_cube = _camera_state(view)
+            cube_angle = _rotation_delta(
+                camera_before_cube["orientation"], camera_after_cube["orientation"]
+            )
+            _report["checks"]["navicube_drag_orbit_radians"] = cube_angle
+            _require(cube_angle > 0.001, "Dragging the NaviCube center did not orbit the view.")
+
+            _report["viewport_size"] = [viewport.width(), viewport.height()]
+            _report["display_scale_factor"] = float(
+                QtWidgets.QApplication.primaryScreen().devicePixelRatio()
+            )
+        _report["navigation_style"] = view_preferences.GetString("NavigationStyle", "")
+        _report["addon_enabled"] = nav.GetBool("Enabled", False)
+    except Exception:
+        _report["probe_error"] = traceback.format_exc()
+        _report["failures"].append("Gesture probe raised an exception.")
+    finally:
+        _report["passed"] = not _report["failures"] and not _report.get("probe_error")
+        try:
+            with open(_report_path, "w", encoding="utf-8") as output:
+                json.dump(_report, output, indent=2)
+        except Exception:
+            _report["report_error"] = traceback.format_exc()
+        if document is not None:
+            try:
+                App.closeDocument(document.Name)
+            except Exception:
+                _report["cleanup_error"] = traceback.format_exc()
+        try:
+            with open(_report_path, "w", encoding="utf-8") as output:
+                json.dump(_report, output, indent=2)
+        finally:
+            QtCore.QTimer.singleShot(500, _main.close)
+
+
+# Let the add-on's delayed startup preset and event filter finish installing.
+QtCore.QTimer.singleShot(4000, _check_gestures)
