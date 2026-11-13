@@ -69,12 +69,18 @@ def _snapshot(label):
             "User parameter:BaseApp/Preferences/Mod/FreecadFusion"
         ).GetBool("Enabled", False),
         "editing_object": getattr(edit_object, "Name", None),
+        "start_page_show_on_startup": App.ParamGet(
+            "User parameter:BaseApp/Preferences/Mod/Start"
+        ).GetBool("ShowOnStartup", True),
         "modal_dialogs": [
             widget.windowTitle()
             for widget in QtWidgets.QApplication.topLevelWidgets()
             if widget.isVisible() and isinstance(widget, QtWidgets.QDialog)
         ],
     }
+    start_page = _main.findChild(QtWidgets.QWidget, "StartView")
+    state["native_start_page_open"] = start_page is not None
+    state["native_start_page_visible"] = bool(start_page and start_page.isVisible())
     state["native_task_docks"] = [
         {"title": dock.windowTitle(), "object_name": dock.objectName(), "visible": dock.isVisible()}
         for dock in _main.findChildren(QtWidgets.QDockWidget)
@@ -220,6 +226,14 @@ def _check_no_document():
     try:
         dock, state = _snapshot("no_document")
         _require(state["active_document"] is None, "Fresh profile unexpectedly opened a document.")
+        _require(
+            not state["start_page_show_on_startup"],
+            "Fusion profile did not apply the expected default Start-page preference.",
+        )
+        _require(
+            not state["native_start_page_open"],
+            "FreeCAD's native Start page remained open in the Fusion profile.",
+        )
         _require(state["primary_command"] == "Std_New", "New Design was not the sole primary action.")
         _require(len(state["visible_actions"]) == 1, "No-document state showed more than one modeling action.")
         _require("Next, create a sketch." in state["hint"], "No-document hint did not explain the next step.")
