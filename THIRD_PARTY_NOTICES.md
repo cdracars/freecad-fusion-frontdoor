@@ -1,5 +1,7 @@
 # Third-party components
 
+The Frontdoor project's own code is licensed under the MIT License; see [`LICENSE`](LICENSE). The bundled components below retain their own licenses and notices.
+
 ## freecad-fusion add-on
 
 - Project: <https://github.com/arxdsilva/freecad-fusion>

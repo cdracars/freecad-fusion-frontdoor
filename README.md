@@ -6,6 +6,8 @@ A Windows-first frontdoor for trying FreeCAD with a Fusion-familiar navigation s
 
 The repo contains a visual mockup and an early Python/PySide6 MVP. The app is designed for Windows. This Linux development environment cannot validate the Windows installer, FreeCAD profile isolation, or add-on startup; see [SPEC.md](SPEC.md) for the release blockers.
 
+The project's own code is licensed under the [MIT License](LICENSE). This does not change the separate licenses for bundled Qt components or the downloaded FreeCAD Fusion add-on; see [third-party notices](THIRD_PARTY_NOTICES.md).
+
 The expanded product, UX, architecture, workflow, navigation, and validation specifications are indexed in [`docs/specs/`](docs/specs/README.md).
 
 Track the Windows V1 acceptance gates, evidence, blockers, and next actions in [`docs/v1-progress.md`](docs/v1-progress.md).

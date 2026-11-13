@@ -93,6 +93,7 @@ New-Item -ItemType Directory -Path $Stage | Out-Null
 $StagedApp = Join-Path $Stage $AppFolders[0].Name
 Copy-Item -LiteralPath $AppFolders[0].FullName -Destination $StagedApp -Recurse
 Copy-Item -LiteralPath "docs\portable-windows-preview.txt" -Destination (Join-Path $Stage "README.txt")
+Copy-Item -LiteralPath "LICENSE" -Destination (Join-Path $Stage "LICENSE.txt")
 Copy-Item -LiteralPath "THIRD_PARTY_NOTICES.md" -Destination (Join-Path $Stage "THIRD_PARTY_NOTICES.txt")
 @(
     "Product: FreeCAD Fusion Frontdoor"
