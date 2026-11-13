@@ -1,0 +1,87 @@
+"""Check Fusion navigation activation in a prepared Fusion FreeCAD profile.
+
+Run this macro on first launch or relaunch with no active document. It waits for
+the pinned add-on's startup timer, writes FRONTDOOR_NAV_SMOKE_REPORT when set,
+and closes only the test FreeCAD window.
+"""
+
+import json
+import os
+import traceback
+
+import FreeCAD as App
+import FreeCADGui as Gui
+from PySide import QtCore, QtWidgets
+
+
+_report_path = os.environ.get(
+    "FRONTDOOR_NAV_SMOKE_REPORT",
+    os.path.join(App.getUserAppDataDir(), "frontdoor_navigation_smoke.json"),
+)
+_main = Gui.getMainWindow()
+_finished = False
+
+
+def _check_navigation():
+    global _finished
+    if _finished:
+        return
+    _finished = True
+
+    try:
+        user_data = App.getUserAppDataDir()
+        user_home = os.environ.get("FREECAD_USER_HOME", "")
+        addon_candidates = [
+            os.path.join(user_data, "Mod", "freecad-fusion", "InitGui.py"),
+            os.path.join(user_home, "Mod", "freecad-fusion", "InitGui.py"),
+        ]
+        addon_path = next((path for path in addon_candidates if os.path.isfile(path)), None)
+        navigation = App.ParamGet("User parameter:BaseApp/Preferences/Mod/FreecadFusion")
+        view = App.ParamGet("User parameter:BaseApp/Preferences/View")
+        labels = _main.findChildren(QtWidgets.QLabel, "navigationStatus")
+        label_texts = [label.text() for label in labels]
+        active_workbench = Gui.activeWorkbench().name() if Gui.activeWorkbench() else ""
+        state = {
+            "user_data_dir": user_data,
+            "addon_path": addon_path,
+            "addon_installed": addon_path is not None,
+            "addon_enabled": navigation.GetBool("Enabled", False),
+            "first_run_done": navigation.GetBool("FirstRunDone", False),
+            "navigation_style": view.GetString("NavigationStyle", ""),
+            "zoom_at_cursor": view.GetBool("ZoomAtCursor", False),
+            "navigation_status_labels": label_texts,
+            "active_workbench": active_workbench,
+        }
+        checks = (
+            (state["addon_installed"], "Pinned Fusion navigation add-on is missing from this profile."),
+            (state["addon_enabled"], "Fusion navigation preset was not enabled at startup."),
+            (state["first_run_done"], "Fusion navigation first-run setup did not complete."),
+            (
+                state["navigation_style"] == "Gui::RevitNavigationStyle",
+                "FreeCAD is not using the Revit navigation style required by the Fusion preset.",
+            ),
+            (state["zoom_at_cursor"], "Cursor-centered zoom is not enabled."),
+            (
+                "Fusion navigation" in label_texts,
+                "Frontdoor does not show the active Fusion navigation status.",
+            ),
+            (
+                active_workbench == "FrontdoorWorkbench",
+                "FrontdoorWorkbench is not the active workbench.",
+            ),
+        )
+        state["failures"] = [message for passed, message in checks if not passed]
+        state["passed"] = not state["failures"]
+        report = state
+    except Exception:
+        report = {"passed": False, "failures": ["Navigation probe raised an exception."], "error": traceback.format_exc()}
+
+    try:
+        with open(_report_path, "w", encoding="utf-8") as output:
+            json.dump(report, output, indent=2)
+    finally:
+        QtCore.QTimer.singleShot(500, _main.close)
+
+
+# The add-on applies its default preset 1.5 seconds after FreeCAD starts.
+QtCore.QTimer.singleShot(4000, _check_navigation)

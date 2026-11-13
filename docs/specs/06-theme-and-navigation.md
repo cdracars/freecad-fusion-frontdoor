@@ -22,9 +22,11 @@ Target behavior:
 
 The pinned add-on implements these mouse mappings through FreeCAD's built-in Revit navigation style and adds drag-to-orbit to the NaviCube. This is a compatibility technique; the user-facing mode name remains `Fusion navigation`. Its keyboard-shortcut remapping is a separate add-on behavior and must remain reversible through the same restore command. The local FreeCAD 1.1.1 Linux run is initial smoke evidence only. Windows behavior, saved preferences, high-DPI behavior, and interactions with custom task layouts remain unverified until the Windows acceptance checks pass.
 
+On the first launch of a prepared Fusion profile, the add-on must apply its default preset automatically and persist `Enabled`/`FirstRunDone`. Frontdoor's active indicator must reflect the add-on's effective state. A navigation smoke profile must include both the pinned navigation add-on and Frontdoor UI; a bare UI-only profile is an intentional negative case, not evidence about the prepared product profile.
+
 ### Acceptance checks for the Windows navigation pass
 
-1. Start the isolated Fusion profile and confirm the active indicator appears only when the add-on's Fusion preset is enabled.
+1. On a fresh isolated Fusion profile with the pinned add-on staged and native navigation initially selected, start FreeCAD. Confirm the add-on applies the preset, `Gui::RevitNavigationStyle` and cursor zoom are enabled, and Frontdoor shows `Fusion navigation` after startup. Confirm an intentionally bare UI-only profile fails the navigation smoke with a clear missing-add-on report.
 2. Use a visible test solid and verify wheel zoom is cursor-centered, middle-drag pans, and Shift + middle-drag orbits. Record before/after camera state so a successful launch alone cannot pass this check.
 3. Drag the NaviCube center to orbit, then click a face and an edge/corner to confirm orbit and standard-view hit targets remain distinct.
 4. Use Tools > Restore my previous FreeCAD settings. Confirm the indicator changes to native navigation, the mouse mapping returns to the saved native setting, and the restored choice persists through a restart.
