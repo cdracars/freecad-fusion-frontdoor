@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Callable
 
 from .errors import FrontdoorError
 from .models import ReleaseAsset
-from .paths import executable_candidates
+from .paths import data_root, environment_for_profile, executable_candidates
 from .release import download_verified_installer
 
 Progress = Callable[[str, int], None]
@@ -76,6 +78,74 @@ def install_windows_freecad(asset: ReleaseAsset, target: Path, progress: Progres
         raise FrontdoorError("The installer finished, but FreeCAD.exe was not found in its app-managed folder.")
     installer.unlink(missing_ok=True)
     return executable
+
+
+def installed_freecad_version(executable: Path) -> str:
+    """Read the actual managed build's version without using a normal FreeCAD profile."""
+    install_directory = (
+        executable.parent.parent
+        if executable.parent.name.casefold() == "bin"
+        else executable.parent
+    )
+    adjacent_command = executable.with_name("FreeCADCmd.exe")
+    other_layout_command = (
+        install_directory / "FreeCADCmd.exe"
+        if executable.parent.name.casefold() == "bin"
+        else install_directory / "bin" / "FreeCADCmd.exe"
+    )
+    command_candidates = (adjacent_command, other_layout_command)
+    command = next((path for path in command_candidates if path.is_file()), None)
+    if command is None:
+        raise FrontdoorError(
+            f"FreeCAD was installed at {executable}, but its FreeCADCmd.exe version checker was not found. "
+            "Retry setup after checking the managed installation."
+        )
+
+    root = data_root()
+    root.mkdir(parents=True, exist_ok=True)
+    try:
+        with tempfile.TemporaryDirectory(prefix="version-check-", dir=root) as temporary:
+            environment = environment_for_profile(Path(temporary))
+            completed = subprocess.run(
+                [str(command), "--version"],
+                cwd=str(command.parent),
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise FrontdoorError(
+            f"Could not verify the installed FreeCAD version with {command}: {exc}. "
+            "Close any managed FreeCAD window and retry setup."
+        ) from exc
+
+    output = (completed.stdout or completed.stderr).strip()
+    if completed.returncode != 0:
+        detail = output or completed.stderr.strip() or f"exit code {completed.returncode}"
+        raise FrontdoorError(
+            f"Could not verify the installed FreeCAD version: {detail}. "
+            "Close any managed FreeCAD window and retry setup."
+        )
+    match = re.search(r"(?<![\w.])(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)(?![\w.])", output)
+    if not match:
+        raise FrontdoorError(
+            f"FreeCAD's version checker returned an unrecognized result: {output or '(no output)'}. "
+            "Close any managed FreeCAD window and retry setup."
+        )
+    return match.group(1)
+
+
+def verify_installed_freecad_version(executable: Path, expected_version: str) -> str:
+    actual_version = installed_freecad_version(executable)
+    if actual_version != expected_version:
+        raise FrontdoorError(
+            f"The managed FreeCAD copy reports version {actual_version}, but setup expected "
+            f"{expected_version}. Close any managed FreeCAD window and retry setup. "
+            "The managed version record was not updated."
+        )
+    return actual_version
 
 
 def _verify_authenticode(installer: Path) -> None:

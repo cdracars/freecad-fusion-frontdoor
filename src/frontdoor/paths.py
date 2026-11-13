@@ -134,7 +134,12 @@ def write_managed_marker(*, executable: Path, version: str) -> None:
 
 def launch_environment(profile_name: str) -> dict[str, str]:
     """Build a launch-only environment for a Frontdoor-managed profile."""
-    profile = ensure_profile(profile_name)
+    return environment_for_profile(ensure_profile(profile_name))
+
+
+def environment_for_profile(profile: Path) -> dict[str, str]:
+    """Build an isolated FreeCAD environment rooted at an app-owned profile path."""
+    profile = profile.expanduser().resolve()
     environment = os.environ.copy()
     environment["FREECAD_USER_HOME"] = str(profile)
     environment["FREECAD_USER_DATA"] = str(profile)

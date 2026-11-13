@@ -7,17 +7,20 @@ from typing import Callable
 
 from .addon import install_pinned_fusion_addon
 from .errors import FrontdoorError
-from .installer import install_windows_freecad
+from .installer import (
+    install_windows_freecad,
+    installed_freecad_version,
+    verify_installed_freecad_version,
+)
 from .models import ReleaseAsset, SetupResult
 from .paths import (
     MANAGED_MARKER,
     data_root,
     executable_candidates,
     ensure_profiles,
+    fusion_addon_ready,
     install_root,
     managed_executable,
-    managed_version,
-    fusion_addon_ready,
     write_managed_marker,
 )
 from .release import latest_windows_release
@@ -73,19 +76,18 @@ def install_managed_copy(asset: ReleaseAsset, progress: Progress) -> SetupResult
     downloads = data_root() / "downloads"
     downloads.mkdir(parents=True, exist_ok=True)
     executable = managed_executable()
-    installed_version = managed_version()
-
     if executable is None:
         _claim_install_directory()
         progress(f"Installing a separate FreeCAD {asset.version} copy…", 0)
         executable = install_windows_freecad(asset, install_root(), progress)
-        installed_version = asset.version
-    elif installed_version != asset.version:
-        progress(f"Updating the app-managed FreeCAD copy to {asset.version}…", 0)
-        executable = install_windows_freecad(asset, install_root(), progress)
-        installed_version = asset.version
+        installed_version = verify_installed_freecad_version(executable, asset.version)
+    else:
+        installed_version = installed_freecad_version(executable)
+        if installed_version != asset.version:
+            progress(f"Updating the app-managed FreeCAD copy from {installed_version} to {asset.version}…", 0)
+            executable = install_windows_freecad(asset, install_root(), progress)
+            installed_version = verify_installed_freecad_version(executable, asset.version)
 
-    installed_version = installed_version or asset.version
     write_managed_marker(executable=executable, version=installed_version)
     if not fusion_addon_ready():
         install_pinned_fusion_addon(progress)

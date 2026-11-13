@@ -134,6 +134,7 @@ The existing `prototype.html` remains a visual reference, not the application im
 - Fusion navigation mappings and NaviCube behavior are verified on each supported FreeCAD/platform combination before being reported ready.
 - The Frontdoor's experience is visibly more coherent and familiar in a side-by-side review, while avoiding Autodesk branding/assets and unsupported exact-equivalence claims.
 - Errors identify the failed step and leave enough state to retry or clean up the app-managed files.
+- Setup confirms the installed `FreeCADCmd.exe --version` exactly matches the selected release before writing or updating the managed-install version record; a mismatch fails retryably and never advertises the requested version as installed.
 - The UI does not label setup complete until the executable and add-on directory are present.
 - The app does not perform Windows installation or profile claims on a non-Windows host.
 - Fusion launch status confirms only that the in-process Frontdoor workbench activated and showed its task surface, using a marker tied to that launch token; it does not certify every modeling command or the navigation add-on. Launcher survival or exit is not proof. Full FreeCAD status must distinguish a running process from an unconfirmed GUI handoff.
