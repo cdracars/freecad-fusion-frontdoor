@@ -97,6 +97,9 @@ def _extract_profile_addon(archive: Path, destination: Path) -> Path:
                 raise FrontdoorError(f"Refusing to modify an unowned replacement directory: {replacement}")
             shutil.rmtree(replacement)
         replacement.mkdir()
+        (replacement / ADDON_MARKER).write_text(
+            json.dumps({"commit": ADDON_COMMIT, "license": "MIT"}, indent=2), encoding="utf-8"
+        )
         shutil.copytree(package_roots[0], replacement, dirs_exist_ok=True)
         (replacement / ADDON_MARKER).write_text(
             json.dumps({"commit": ADDON_COMMIT, "license": "MIT"}, indent=2), encoding="utf-8"
@@ -104,7 +107,12 @@ def _extract_profile_addon(archive: Path, destination: Path) -> Path:
         if not _is_valid_owned_addon(replacement):
             raise FrontdoorError("The staged add-on is incomplete and was not activated.")
         if addon.exists():
-            addon.replace(backup)
+            try:
+                addon.replace(backup)
+            except OSError as exc:
+                raise FrontdoorError(
+                    f"The current add-on could not be moved safely; the existing version remains active: {exc}"
+                ) from exc
         try:
             replacement.replace(addon)
         except OSError as exc:
@@ -117,7 +125,13 @@ def _extract_profile_addon(archive: Path, destination: Path) -> Path:
                     ) from exc
             raise FrontdoorError(f"The pinned add-on could not activate; the previous version was restored: {exc}") from exc
         if backup.exists() and (backup / ADDON_MARKER).is_file():
-            shutil.rmtree(backup)
+            try:
+                shutil.rmtree(backup)
+            except OSError as exc:
+                raise FrontdoorError(
+                    f"The new add-on is active, but its owned backup could not be cleaned up. "
+                    f"Retry setup to finish recovery: {exc}"
+                ) from exc
         return addon
     except zipfile.BadZipFile as exc:
         raise FrontdoorError("The downloaded add-on archive is not a valid ZIP file.") from exc
