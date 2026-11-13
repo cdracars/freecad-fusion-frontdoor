@@ -59,3 +59,7 @@ Do not label setup complete until the executable, profile ownership records, sta
 
 On failure, preserve enough state to retry or repair safely. Never claim that an existing FreeCAD profile was unchanged without evidence from the path/environment isolation design.
 
+### Pinned add-on replacement and recovery
+
+Install or repair the pinned Fusion navigation add-on transactionally inside the Fusion profile. Refuse to replace an existing add-on unless it contains Frontdoor's ownership marker. Stage and validate the complete replacement before touching the active directory. Activate it with same-volume directory renames, retaining the previous owned directory as a backup until activation succeeds. If activation fails, restore the previous directory before reporting the error. A later retry must recover an interrupted swap: restore the owned backup when the active directory is absent; when a valid active directory exists, remove an owned backup only after confirming activation. Remove stale replacement or backup directories only when they carry the expected Frontdoor ownership marker; leave unowned paths untouched and fail with a clear error. The operation must be idempotent and preserve the prior working add-on across rename failures and process interruption.
+

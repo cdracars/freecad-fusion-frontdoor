@@ -75,17 +75,55 @@ def _extract_profile_addon(archive: Path, destination: Path) -> Path:
         if addon.exists() and not ownership.is_file():
             raise FrontdoorError(f"Refusing to overwrite an unowned add-on directory: {addon}")
         replacement = destination / f".{ADDON_FOLDER}.new"
+        backup = destination / f".{ADDON_FOLDER}.backup"
+
+        # Resolve a prior interrupted swap before preparing another replacement.
+        if backup.exists():
+            if not (backup / ADDON_MARKER).is_file():
+                raise FrontdoorError(f"Refusing to modify an unowned add-on backup: {backup}")
+            if addon.exists():
+                if not (addon / ADDON_MARKER).is_file():
+                    raise FrontdoorError(f"Refusing to modify an unowned add-on directory: {addon}")
+                if _is_valid_owned_addon(addon):
+                    shutil.rmtree(backup)
+                else:
+                    shutil.rmtree(addon)
+                    backup.replace(addon)
+            else:
+                backup.replace(addon)
+
         if replacement.exists():
+            if not (replacement / ADDON_MARKER).is_file():
+                raise FrontdoorError(f"Refusing to modify an unowned replacement directory: {replacement}")
             shutil.rmtree(replacement)
-        shutil.copytree(package_roots[0], replacement)
+        replacement.mkdir()
+        shutil.copytree(package_roots[0], replacement, dirs_exist_ok=True)
         (replacement / ADDON_MARKER).write_text(
             json.dumps({"commit": ADDON_COMMIT, "license": "MIT"}, indent=2), encoding="utf-8"
         )
+        if not _is_valid_owned_addon(replacement):
+            raise FrontdoorError("The staged add-on is incomplete and was not activated.")
         if addon.exists():
-            shutil.rmtree(addon)
-        replacement.replace(addon)
+            addon.replace(backup)
+        try:
+            replacement.replace(addon)
+        except OSError as exc:
+            if backup.exists() and not addon.exists():
+                try:
+                    backup.replace(addon)
+                except OSError as restore_error:
+                    raise FrontdoorError(
+                        f"Add-on activation failed and its backup could not be restored: {restore_error}"
+                    ) from exc
+            raise FrontdoorError(f"The pinned add-on could not activate; the previous version was restored: {exc}") from exc
+        if backup.exists() and (backup / ADDON_MARKER).is_file():
+            shutil.rmtree(backup)
         return addon
     except zipfile.BadZipFile as exc:
         raise FrontdoorError("The downloaded add-on archive is not a valid ZIP file.") from exc
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+
+
+def _is_valid_owned_addon(path: Path) -> bool:
+    return all((path / name).is_file() for name in (ADDON_MARKER, "InitGui.py", "package.xml"))
