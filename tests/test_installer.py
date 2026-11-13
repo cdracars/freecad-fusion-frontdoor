@@ -87,7 +87,9 @@ class InstalledFreeCADVersionTests(unittest.TestCase):
 
             self.assertEqual(run.call_args.args[0], [str(command), "--version"])
             environment = run.call_args.kwargs["env"]
-            self.assertTrue(environment["FREECAD_USER_HOME"].startswith(str(root / "frontdoor-data")))
+            profile_home = Path(environment["FREECAD_USER_HOME"])
+            self.assertEqual(profile_home.parent.name.casefold(), "frontdoor-data")
+            self.assertTrue(profile_home.name.casefold().startswith("version-check-"))
             self.assertNotEqual(environment["FREECAD_USER_HOME"], os.environ.get("HOME"))
             self.assertEqual(run.call_args.kwargs["timeout"], 60)
 
